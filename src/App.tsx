@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Property,
   Unit,
@@ -35,6 +35,11 @@ import {
   calculateBalanceAfterPayment,
   createPaymentLedgerEntryFromBankMatch
 } from './lib/paymentLedger';
+import {
+  getConfiguredDataMode,
+  getAuthRepository,
+  getDataRepository,
+} from './lib/backendContracts';
 import {
   describeUserScope,
   getPropertyUnits,
@@ -78,11 +83,16 @@ const INITIAL_TENANT_REQUESTS: TenantRegistrationRequest[] = [
 ];
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getSavedAuthUser());
+  const dataMode = getConfiguredDataMode();
+  const [isLoading, setIsLoading] = useState(() => dataMode === 'supabase');
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
+    dataMode === 'local-demo' ? getSavedAuthUser() : null
+  );
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
-    const savedUser = getSavedAuthUser();
+    const savedUser = dataMode === 'local-demo' ? getSavedAuthUser() : null;
     return savedUser ? getDefaultTabForRole(savedUser.role) : 'properties';
   });
+  const supabaseInitialized = useRef(false);
 
   // Load state or use initial mock databases
   const [properties, setProperties] = useState<Property[]>(() =>
@@ -239,6 +249,41 @@ export default function App() {
       setSelectedProperty(nextProperty);
     }
   }, [currentUser, properties, selectedProperty]);
+
+  // Supabase: restore session + load snapshot on mount
+  useEffect(() => {
+    if (dataMode !== 'supabase' || supabaseInitialized.current) return;
+    supabaseInitialized.current = true;
+
+    (async () => {
+      try {
+        const authRepo = await getAuthRepository();
+        const session = await authRepo.getSession();
+        if (!session) { setIsLoading(false); return; }
+
+        const dataRepo = await getDataRepository();
+        const snapshot = await dataRepo.loadSnapshot(session.user);
+
+        setCurrentUser(session.user);
+        setActiveTab(getDefaultTabForRole(session.user.role));
+        setProperties(snapshot.properties);
+        setUnits(snapshot.units);
+        setExpenses(snapshot.expenses);
+        setRules(snapshot.rules);
+        setIssues(snapshot.issues);
+        setBankTransactions(snapshot.bankTransactions);
+        setPaymentLedger(snapshot.paymentLedger);
+        setDocuments(snapshot.documents);
+        setTenantUsers(snapshot.users);
+        setTenantRequests(snapshot.tenantRequests);
+        if (snapshot.properties.length > 0) setSelectedProperty(snapshot.properties[0]);
+      } catch (err) {
+        console.error('Supabase init error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [dataMode]);
 
   // Business Action 1: Add a new property
   const handleAddProperty = (newPropData: Omit<Property, 'id' | 'issuesCount' | 'dues' | 'status'>) => {
@@ -527,9 +572,14 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    clearAuthUser();
+    if (dataMode === 'supabase') {
+      getAuthRepository().then((repo) => repo.signOut()).catch(console.error);
+    } else {
+      clearAuthUser();
+    }
     setCurrentUser(null);
     setActiveTab('properties');
+    supabaseInitialized.current = false;
   };
 
   const handleInviteUser = (user: AuthUser) => {
@@ -683,8 +733,44 @@ export default function App() {
     }
   };
 
+  const handleSupabaseLogin = async (email: string, password: string) => {
+    const authRepo = await getAuthRepository();
+    const session = await authRepo.signIn({ email, password });
+    const dataRepo = await getDataRepository();
+    const snapshot = await dataRepo.loadSnapshot(session.user);
+    setProperties(snapshot.properties);
+    setUnits(snapshot.units);
+    setExpenses(snapshot.expenses);
+    setRules(snapshot.rules);
+    setIssues(snapshot.issues);
+    setBankTransactions(snapshot.bankTransactions);
+    setPaymentLedger(snapshot.paymentLedger);
+    setDocuments(snapshot.documents);
+    setTenantUsers(snapshot.users);
+    setTenantRequests(snapshot.tenantRequests);
+    if (snapshot.properties.length > 0) setSelectedProperty(snapshot.properties[0]);
+    setActiveTab(getDefaultTabForRole(session.user.role));
+    return session.user;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#004349]">
+        <div className="text-center text-white">
+          <div className="text-2xl font-black mb-2">Atlas PM</div>
+          <div className="text-sm text-white/60">Φόρτωση δεδομένων…</div>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
-    return <LoginView onAuthenticated={setCurrentUser} />;
+    return (
+      <LoginView
+        onAuthenticated={setCurrentUser}
+        loginOverride={dataMode === 'supabase' ? handleSupabaseLogin : undefined}
+      />
+    );
   }
 
   return (

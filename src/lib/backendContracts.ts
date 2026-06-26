@@ -68,3 +68,22 @@ export function getConfiguredDataMode(): DataMode {
   const mode = import.meta.env.VITE_DATA_MODE;
   return mode === 'supabase' ? 'supabase' : 'local-demo';
 }
+
+let _authRepo: AuthRepository | null = null;
+let _dataRepo: TenantDataRepository | null = null;
+
+export async function getAuthRepository(): Promise<AuthRepository> {
+  if (!_authRepo) {
+    const { supabaseAuthRepository } = await import('./supabase/authRepository');
+    _authRepo = supabaseAuthRepository;
+  }
+  return _authRepo;
+}
+
+export async function getDataRepository(): Promise<TenantDataRepository> {
+  if (!_dataRepo) {
+    const { supabaseDataRepository } = await import('./supabase/dataRepository');
+    _dataRepo = supabaseDataRepository;
+  }
+  return _dataRepo;
+}

@@ -4,23 +4,37 @@ import { AuthUser, DEMO_LOGIN_HINTS, loginWithCredentials } from '../lib/auth';
 
 interface LoginViewProps {
   onAuthenticated: (user: AuthUser) => void;
+  loginOverride?: (email: string, password: string) => Promise<AuthUser>;
 }
 
-export default function LoginView({ onAuthenticated }: LoginViewProps) {
+export default function LoginView({ onAuthenticated, loginOverride }: LoginViewProps) {
   const [email, setEmail] = useState('admin@hellaspm.gr');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = loginWithCredentials(email, password);
-    if (!result.ok || !result.user) {
-      setError(result.error || 'Δεν ήταν δυνατή η σύνδεση.');
-      return;
-    }
-
+    setIsSubmitting(true);
     setError('');
-    onAuthenticated(result.user);
+
+    try {
+      if (loginOverride) {
+        const user = await loginOverride(email, password);
+        onAuthenticated(user);
+      } else {
+        const result = loginWithCredentials(email, password);
+        if (!result.ok || !result.user) {
+          setError(result.error || 'Δεν ήταν δυνατή η σύνδεση.');
+          return;
+        }
+        onAuthenticated(result.user);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Δεν ήταν δυνατή η σύνδεση.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -117,9 +131,10 @@ export default function LoginView({ onAuthenticated }: LoginViewProps) {
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-extrabold text-white shadow hover:bg-[#0d5c63]"
+                disabled={isSubmitting}
+                className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-extrabold text-white shadow hover:bg-[#0d5c63] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Είσοδος στο Atlas PM
+                {isSubmitting ? 'Σύνδεση…' : 'Είσοδος στο Atlas PM'}
               </button>
             </form>
 
