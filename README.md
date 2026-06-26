@@ -26,16 +26,7 @@ Open `http://localhost:3000`.
 - `owner@example.gr` / `owner123`
 - `resident@example.gr` / `resident123`
 
-## Environment
 
-Copy `.env.example` to `.env.local`.
-
-```bash
-VITE_DATA_MODE="local-demo"
-VITE_SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co"
-VITE_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
-VITE_APP_URL="http://localhost:3000"
-```
 
 Use `VITE_DATA_MODE="supabase"` after wiring the Supabase client implementation.
 
