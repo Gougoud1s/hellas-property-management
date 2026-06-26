@@ -1,0 +1,156 @@
+import React, { useState } from 'react';
+import { Camera, Lock, Save, UserCircle } from 'lucide-react';
+import { AuthUser, getRoleLabel } from '../lib/auth';
+
+interface ProfileSettingsViewProps {
+  currentUser: AuthUser;
+  onUpdateProfile: (user: AuthUser) => void;
+}
+
+export default function ProfileSettingsView({ currentUser, onUpdateProfile }: ProfileSettingsViewProps) {
+  const [fullName, setFullName] = useState(currentUser.fullName);
+  const [phone, setPhone] = useState(currentUser.phone || '');
+  const [jobTitle, setJobTitle] = useState(currentUser.jobTitle || '');
+  const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl);
+  const [notificationEmail, setNotificationEmail] = useState(currentUser.notificationEmail ?? true);
+  const [notificationSms, setNotificationSms] = useState(currentUser.notificationSms ?? false);
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    onUpdateProfile({
+      ...currentUser,
+      fullName,
+      phone,
+      jobTitle,
+      avatarUrl,
+      notificationEmail,
+      notificationSms
+    });
+  };
+
+  return (
+    <div id="profile-settings-view" className="space-y-6">
+      <div className="rounded-xl border border-outline-variant bg-surface-container-low p-5">
+        <h2 className="flex items-center gap-2 text-xl font-bold text-primary">
+          <UserCircle className="h-5 w-5" />
+          Το Προφίλ μου
+        </h2>
+        <p className="mt-1 text-sm text-outline">
+          Κάθε χρήστης μπορεί να επεξεργάζεται τα προσωπικά του στοιχεία. Ρόλος, tenant και συνδεδεμένες μονάδες αλλάζουν μόνο από admin.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+          <div className="flex flex-col items-center text-center">
+            <div className="relative">
+              <img
+                className="h-28 w-28 rounded-full border-4 border-primary/20 object-cover"
+                src={avatarUrl}
+                alt={fullName}
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute bottom-1 right-1 rounded-full bg-primary p-2 text-white">
+                <Camera className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-4 text-lg font-black text-primary">{currentUser.fullName}</div>
+            <div className="text-xs font-bold text-outline">{getRoleLabel(currentUser.role)}</div>
+            <div className="mt-4 w-full rounded-lg border border-outline-variant bg-surface-container-low p-3 text-left">
+              <div className="text-[10px] font-black uppercase text-outline">Κλειδωμένα πεδία</div>
+              <div className="mt-2 space-y-1 text-xs text-on-surface-variant">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5" />
+                  Email: {currentUser.email}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5" />
+                  Tenant: {currentUser.companyName}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5" />
+                  Ρόλος: {getRoleLabel(currentUser.role)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2 space-y-6">
+          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+            <h3 className="text-sm font-black uppercase text-primary">Προσωπικά στοιχεία</h3>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-outline">ΟΝΟΜΑΤΕΠΩΝΥΜΟ</label>
+                <input
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-outline">ΤΗΛΕΦΩΝΟ</label>
+                <input
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-outline">ΤΙΤΛΟΣ / ΠΕΡΙΓΡΑΦΗ</label>
+                <input
+                  value={jobTitle}
+                  onChange={(event) => setJobTitle(event.target.value)}
+                  className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-outline">PROFILE IMAGE URL</label>
+                <input
+                  value={avatarUrl}
+                  onChange={(event) => setAvatarUrl(event.target.value)}
+                  className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+            <h3 className="text-sm font-black uppercase text-primary">Ειδοποιήσεις</h3>
+            <div className="mt-4 space-y-3">
+              <label className="flex items-center justify-between rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3">
+                <span>
+                  <span className="block text-sm font-bold text-on-surface">Email updates</span>
+                  <span className="text-xs text-outline">Λογαριασμοί, πληρωμές, έγγραφα και βλάβες.</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={notificationEmail}
+                  onChange={(event) => setNotificationEmail(event.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+              </label>
+              <label className="flex items-center justify-between rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3">
+                <span>
+                  <span className="block text-sm font-bold text-on-surface">SMS alerts</span>
+                  <span className="text-xs text-outline">Μόνο επείγουσες βλάβες και κρίσιμες ειδοποιήσεις.</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={notificationSms}
+                  onChange={(event) => setNotificationSms(event.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+              </label>
+            </div>
+          </div>
+
+          <button className="flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-[#0d5c63]">
+            <Save className="h-4 w-4" />
+            Αποθήκευση Προφίλ
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
