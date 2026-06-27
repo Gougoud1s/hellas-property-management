@@ -1,5 +1,6 @@
 export type UserRole = 'company_admin' | 'company_staff' | 'owner' | 'resident';
 export type AppPermission =
+  | 'dashboard:view'
   | 'admin:view'
   | 'admin:manage'
   | 'properties:view'
@@ -12,6 +13,10 @@ export type AppPermission =
   | 'rules:manage'
   | 'statements:view'
   | 'statements:publish'
+  | 'invoicing:view'
+  | 'invoicing:manage'
+  | 'assemblies:view'
+  | 'assemblies:manage'
   | 'issues:view'
   | 'issues:manage'
   | 'bank:view'
@@ -22,12 +27,15 @@ export type AppPermission =
   | 'profile:manage';
 
 export type AppTab =
+  | 'dashboard'
   | 'admin'
   | 'properties'
   | 'units'
   | 'expenses'
   | 'rules'
   | 'statements'
+  | 'invoicing'
+  | 'assemblies'
   | 'issues'
   | 'bank'
   | 'docs'
@@ -159,6 +167,10 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'rules:manage',
     'statements:view',
     'statements:publish',
+    'invoicing:view',
+    'invoicing:manage',
+    'assemblies:view',
+    'assemblies:manage',
     'issues:view',
     'issues:manage',
     'bank:view',
@@ -177,6 +189,10 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'expenses:manage',
     'rules:view',
     'statements:view',
+    'invoicing:view',
+    'invoicing:manage',
+    'assemblies:view',
+    'assemblies:manage',
     'issues:view',
     'issues:manage',
     'bank:view',
@@ -186,17 +202,20 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'profile:view',
     'profile:manage'
   ],
-  owner: ['statements:view', 'issues:view', 'docs:view', 'bank:view', 'profile:view', 'profile:manage'],
-  resident: ['statements:view', 'issues:view', 'docs:view', 'profile:view', 'profile:manage']
+  owner: ['dashboard:view', 'statements:view', 'assemblies:view', 'issues:view', 'docs:view', 'bank:view', 'profile:view', 'profile:manage'],
+  resident: ['dashboard:view', 'statements:view', 'assemblies:view', 'issues:view', 'docs:view', 'profile:view', 'profile:manage']
 };
 
 const TAB_PERMISSION: Record<AppTab, AppPermission> = {
+  dashboard: 'dashboard:view',
   admin: 'admin:view',
   properties: 'properties:view',
   units: 'units:view',
   expenses: 'expenses:view',
   rules: 'rules:view',
   statements: 'statements:view',
+  invoicing: 'invoicing:view',
+  assemblies: 'assemblies:view',
   issues: 'issues:view',
   bank: 'bank:view',
   docs: 'docs:view',
@@ -216,7 +235,7 @@ export function canAccessTab(user: AuthUser, tab: AppTab): boolean {
 }
 
 export function getDefaultTabForRole(role: UserRole): AppTab {
-  if (role === 'owner' || role === 'resident') return 'statements';
+  if (role === 'owner' || role === 'resident') return 'dashboard';
   return 'properties';
 }
 

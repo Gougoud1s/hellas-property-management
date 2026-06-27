@@ -1,6 +1,16 @@
 # Hellas Property Management
 
-Multi-tenant SaaS prototype for Greek property management companies.
+Multi-tenant SaaS for Greek property management companies and property owners.
+
+## Included modules
+
+- Supabase authentication, tenant-scoped repositories and RLS schema
+- Viva Wallet payment-link flow with a credential-free demo mode
+- AADE myDATA period transmission workspace (type 13.1)
+- Digital general assemblies, quorum tracking and owner voting
+- AI-assisted Greek receipt extraction
+- Owner self-service dashboard, payments and printable statements
+- Greek/English application shell and installable PWA
 
 ## Current Mode
 
@@ -37,7 +47,7 @@ VITE_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
 VITE_APP_URL="http://localhost:3000"
 ```
 
-Use `VITE_DATA_MODE="supabase"` after wiring the Supabase client implementation.
+Use `VITE_DATA_MODE="supabase"` after configuring the Supabase project. Optional AADE, Anthropic, Resend and push credentials are documented in `.env.example`; blank credentials keep integrations in an explicitly labelled demo mode.
 
 ## Supabase Setup
 
@@ -55,6 +65,6 @@ The RLS policies enforce:
 - Documents respect visibility: company-only, owners, or all.
 - Bank reconciliation remains company-only.
 
-## Next Backend Task
+## API server
 
-Install `@supabase/supabase-js` and implement a `SupabaseTenantDataRepository` behind `src/lib/backendContracts.ts`, then switch `App.tsx` from direct local state loading to repository-backed snapshot loading.
+Run `npm run server` beside `npm run dev`. The frontend proxies `/api` to port `3001`.

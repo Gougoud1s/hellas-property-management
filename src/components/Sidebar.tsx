@@ -1,7 +1,8 @@
 import React from 'react';
 import { AuthUser, canAccessTab, getRoleLabel } from '../lib/auth';
+import { useTranslation } from '../lib/i18n';
 
-export type ActiveTab = 'admin' | 'properties' | 'units' | 'expenses' | 'rules' | 'statements' | 'issues' | 'bank' | 'docs' | 'profile';
+export type ActiveTab = 'dashboard' | 'admin' | 'properties' | 'units' | 'expenses' | 'rules' | 'statements' | 'invoicing' | 'assemblies' | 'issues' | 'bank' | 'docs' | 'profile';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -18,22 +19,26 @@ interface MenuItem {
 }
 
 export default function Sidebar({ activeTab, setActiveTab, brandName, currentUser }: SidebarProps) {
+  const { t } = useTranslation();
   const menuItems: MenuItem[] = [
-    { id: 'admin', label: 'Admin Console', icon: 'admin_panel_settings' },
-    { id: 'properties', label: 'Πολυκατοικίες', icon: 'corporate_fare' },
-    { id: 'units', label: 'Μονάδες & Χιλιοστά', icon: 'home_work' },
-    { id: 'expenses', label: 'Έξοδα & Δαπάνες', icon: 'receipt_long' },
-    { id: 'rules', label: 'Κανόνες Κατανομής', icon: 'rule' },
-    { id: 'statements', label: 'Κοινόχρηστα', icon: 'table_chart' },
-    { id: 'issues', label: 'Βλάβες & Συντήρηση', icon: 'handyman', badge: 2 },
-    { id: 'bank', label: 'Τραπεζικό Καθολικό', icon: 'account_balance_wallet', badge: 'New' },
-    { id: 'docs', label: 'Ψηφιακό Αρχείο', icon: 'folder_open' },
-    { id: 'profile', label: 'Το Προφίλ μου', icon: 'account_circle' }
+    { id: 'dashboard', label: t('nav.dashboard'), icon: 'space_dashboard' },
+    { id: 'admin', label: t('nav.admin'), icon: 'admin_panel_settings' },
+    { id: 'properties', label: t('nav.properties'), icon: 'corporate_fare' },
+    { id: 'units', label: t('nav.units'), icon: 'home_work' },
+    { id: 'expenses', label: t('nav.expenses'), icon: 'receipt_long' },
+    { id: 'rules', label: t('nav.rules'), icon: 'rule' },
+    { id: 'statements', label: t('nav.statements'), icon: 'table_chart' },
+    { id: 'invoicing', label: t('nav.invoicing'), icon: 'receipt' },
+    { id: 'assemblies', label: t('nav.assemblies'), icon: 'how_to_vote' },
+    { id: 'issues', label: t('nav.issues'), icon: 'handyman', badge: 2 },
+    { id: 'bank', label: t('nav.bank'), icon: 'account_balance_wallet' },
+    { id: 'docs', label: t('nav.docs'), icon: 'folder_open' },
+    { id: 'profile', label: t('nav.profile'), icon: 'account_circle' }
   ];
   const visibleMenuItems = menuItems.filter((item) => canAccessTab(currentUser, item.id));
 
   return (
-    <aside id="app-sidebar" className="fixed bottom-0 left-0 top-0 z-50 flex w-64 flex-col border-r border-outline-variant bg-[#004349] text-white">
+    <aside id="app-sidebar" className="app-sidebar fixed bottom-0 left-0 top-0 z-50 flex w-64 flex-col border-r border-outline-variant bg-[#004349] text-white">
       {/* Brand Title */}
       <div className="flex h-16 items-center gap-2 px-6 border-b border-white/10">
         <span className="material-symbols-outlined text-inverse-primary text-2xl">apartment</span>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, Globe, ChevronDown, Clock, LogOut } from 'lucide-react';
 import { Property } from '../types';
 import { AuthUser, getRoleLabel } from '../lib/auth';
+import { useTranslation } from '../lib/i18n';
 
 interface HeaderProps {
   selectedProperty: Property | null;
@@ -20,6 +21,7 @@ export default function Header({
   onLogout,
   onOpenProfile
 }: HeaderProps) {
+  const { language, setLanguage, t } = useTranslation();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -65,7 +67,7 @@ export default function Header({
             className="flex items-center gap-2 rounded-lg border border-outline bg-surface-container-lowest px-4 py-2 text-sm font-medium hover:bg-surface-container-low transition-colors"
           >
             <span className="material-symbols-outlined text-primary text-xl">corporate_fare</span>
-            <span>{selectedProperty ? selectedProperty.name : 'Επιλογή Κτιρίου'}</span>
+            <span>{selectedProperty ? selectedProperty.name : t('header.property')}</span>
             <ChevronDown className="h-4 w-4 text-outline" />
           </button>
 
@@ -107,11 +109,10 @@ export default function Header({
       {/* Action triggers */}
       <div className="flex items-center gap-4">
         {/* Language switch */}
-        <div className="flex items-center gap-1 text-xs font-medium text-outline bg-surface-container px-2.5 py-1.5 rounded-md border border-outline-variant/20">
+        <div className="language-toggle" aria-label={t('header.language')}>
           <Globe className="h-3.5 w-3.5" />
-          <span className="font-bold text-[#004349]">EL</span>
-          <span className="text-outline-variant">|</span>
-          <span className="hover:text-primary cursor-pointer">EN</span>
+          <button className={language === 'el' ? 'active' : ''} onClick={() => setLanguage('el')}>GR</button>
+          <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>EN</button>
         </div>
 
         {/* Notifications Icon with Badge */}

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Search, Plus, Trash2, CheckCircle2, AlertCircle, FileText, UploadCloud, PieChart, Tag, DollarSign, Calendar, User } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle2, AlertCircle, FileText, UploadCloud, PieChart, Tag, DollarSign, Calendar, User, Sparkles, Loader2 } from 'lucide-react';
 import { Property, Expense } from '../types';
 
 interface ExpensesViewProps {
@@ -32,6 +32,9 @@ export default function ExpensesView({
   const [date, setDate] = useState('2026-06-15');
   const [fileName, setFileName] = useState('');
   const [isDragActive, setIsDragActive] = useState(false);
+  const [aiMode, setAiMode] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
+  const [aiFilled, setAiFilled] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,19 +66,30 @@ export default function ExpensesView({
     }
   };
 
+  const scanReceipt = async (file: File) => {
+    if (!aiMode || !file.type.startsWith('image/')) return;
+    setIsScanning(true); setAiFilled(false);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
+      const response = await fetch('/api/expenses/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: dataUrl.split(',')[1], mediaType: file.type, fileName: file.name }) });
+      const payload = await response.json(); if (!response.ok) throw new Error(payload.error || 'Scan failed');
+      setSupplier(payload.supplier || ''); setAmount(payload.amount ? String(payload.amount) : ''); setDate(payload.date || date); setCategory(payload.category || 'Γενικά / Άλλα'); setAiFilled(true);
+    } catch (error) { alert(error instanceof Error ? error.message : 'Η σάρωση απέτυχε.'); } finally { setIsScanning(false); }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFileName(e.dataTransfer.files[0].name);
+      const file = e.dataTransfer.files[0]; setFileName(file.name); void scanReceipt(file);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFileName(e.target.files[0].name);
+      const file = e.target.files[0]; setFileName(file.name); void scanReceipt(file);
     }
   };
 
@@ -408,7 +422,7 @@ export default function ExpensesView({
 
                 {/* Drag and Drop File Upload */}
                 <div>
-                  <label className="block text-xs font-semibold text-outline mb-1.5">ΠΑΡΑΣΤΑΤΙΚΟ / ΤΙΜΟΛΟΓΙΟ</label>
+                  <div className="mb-2 flex items-center justify-between"><label className="block text-xs font-semibold text-outline">ΠΑΡΑΣΤΑΤΙΚΟ / ΤΙΜΟΛΟΓΙΟ</label><button type="button" className={`ai-toggle ${aiMode ? 'active' : ''}`} onClick={() => setAiMode(!aiMode)}><Sparkles size={13}/> Σάρωση με AI</button></div>
                   <div
                     onDragEnter={handleDrag}
                     onDragOver={handleDrag}
@@ -423,8 +437,8 @@ export default function ExpensesView({
                         : 'border-outline hover:bg-surface-container'
                     }`}
                   >
-                    <UploadCloud className={`h-8 w-8 mb-2 ${fileName ? 'text-teal-600' : 'text-outline'}`} />
-                    {fileName ? (
+                    {isScanning ? <Loader2 className="h-8 w-8 mb-2 animate-spin text-primary"/> : <UploadCloud className={`h-8 w-8 mb-2 ${fileName ? 'text-teal-600' : 'text-outline'}`} />}
+                    {isScanning ? <div className="text-xs font-semibold text-primary">Ανάγνωση παραστατικού…</div> : fileName ? (
                       <div className="text-xs">
                         <p className="font-semibold text-teal-700">{fileName}</p>
                         <p className="text-[10px] text-outline mt-1">Κάντε κλικ για αλλαγή αρχείου</p>
@@ -443,6 +457,7 @@ export default function ExpensesView({
                       accept=".pdf,.png,.jpg,.jpeg"
                     />
                   </div>
+                  {aiFilled && <p className="ai-success"><Sparkles size={13}/> Τα πεδία συμπληρώθηκαν αυτόματα — ελέγξτε τα πριν την αποθήκευση.</p>}
                 </div>
               </form>
             </div>

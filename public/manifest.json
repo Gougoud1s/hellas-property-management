@@ -1,0 +1,11 @@
+{
+  "name": "Atlas Property Management",
+  "short_name": "Atlas PM",
+  "description": "Property operations, payments and owner services.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f2eb",
+  "theme_color": "#073f42",
+  "lang": "el",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

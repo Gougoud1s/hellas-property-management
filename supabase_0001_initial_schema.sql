@@ -503,3 +503,68 @@ create policy documents_company_manage on public.documents
 for all
 using (tenant_id = public.current_tenant_id() and public.is_company_user())
 with check (tenant_id = public.current_tenant_id() and public.is_company_user());
+
+-- Compliance, assemblies, online payments and push delivery
+create type public.transmission_status as enum ('draft', 'transmitted', 'cancelled', 'error');
+create type public.assembly_status as enum ('draft', 'open', 'closed');
+create type public.vote_choice as enum ('yes', 'no', 'abstain');
+create type public.attendance_type as enum ('present', 'proxy', 'remote');
+
+alter table public.tenants add column aade_username text;
+alter table public.tenants add column aade_password_encrypted text;
+
+create table public.payment_orders (
+  id uuid primary key default gen_random_uuid(), tenant_id uuid not null references public.tenants(id) on delete cascade,
+  unit_id uuid not null references public.units(id) on delete cascade, amount numeric(12,2) not null check (amount > 0),
+  viva_order_code text unique, status text not null default 'pending', created_at timestamptz not null default now()
+);
+create table public.mydata_transmissions (
+  id uuid primary key default gen_random_uuid(), tenant_id uuid not null references public.tenants(id) on delete cascade,
+  property_id uuid not null references public.properties(id) on delete cascade, period text not null, mark text,
+  status public.transmission_status not null default 'draft', transmitted_at timestamptz, error_message text,
+  created_at timestamptz not null default now(), unique(property_id, period)
+);
+create table public.assemblies (
+  id uuid primary key default gen_random_uuid(), tenant_id uuid not null references public.tenants(id) on delete cascade,
+  property_id uuid not null references public.properties(id) on delete cascade, title text not null, scheduled_at timestamptz not null,
+  status public.assembly_status not null default 'draft', quorum_percent numeric(5,2) not null default 50,
+  minutes_url text, created_at timestamptz not null default now()
+);
+create table public.agenda_items (
+  id uuid primary key default gen_random_uuid(), assembly_id uuid not null references public.assemblies(id) on delete cascade,
+  order_index integer not null default 0, title text not null, description text, requires_vote boolean not null default true
+);
+create table public.assembly_votes (
+  id uuid primary key default gen_random_uuid(), assembly_id uuid not null references public.assemblies(id) on delete cascade,
+  agenda_item_id uuid not null references public.agenda_items(id) on delete cascade, voter_user_id uuid not null references public.user_profiles(id) on delete cascade,
+  vote public.vote_choice not null, voted_at timestamptz not null default now(), unique(agenda_item_id, voter_user_id)
+);
+create table public.assembly_attendees (
+  id uuid primary key default gen_random_uuid(), assembly_id uuid not null references public.assemblies(id) on delete cascade,
+  user_id uuid not null references public.user_profiles(id) on delete cascade, attendance_type public.attendance_type not null,
+  joined_at timestamptz not null default now(), unique(assembly_id, user_id)
+);
+create table public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(), tenant_id uuid not null references public.tenants(id) on delete cascade,
+  user_id uuid not null references public.user_profiles(id) on delete cascade, endpoint text not null unique,
+  p256dh text not null, auth text not null, created_at timestamptz not null default now()
+);
+
+alter table public.payment_orders enable row level security;
+alter table public.mydata_transmissions enable row level security;
+alter table public.assemblies enable row level security;
+alter table public.agenda_items enable row level security;
+alter table public.assembly_votes enable row level security;
+alter table public.assembly_attendees enable row level security;
+alter table public.push_subscriptions enable row level security;
+
+create policy payment_orders_scoped on public.payment_orders for all using (tenant_id = public.current_tenant_id()) with check (tenant_id = public.current_tenant_id());
+create policy mydata_company on public.mydata_transmissions for all using (tenant_id = public.current_tenant_id() and public.is_company_user()) with check (tenant_id = public.current_tenant_id() and public.is_company_user());
+create policy assemblies_scoped on public.assemblies for select using (tenant_id = public.current_tenant_id());
+create policy assemblies_company on public.assemblies for all using (tenant_id = public.current_tenant_id() and public.is_company_user()) with check (tenant_id = public.current_tenant_id() and public.is_company_user());
+create policy agenda_scoped on public.agenda_items for select using (exists(select 1 from public.assemblies a where a.id=assembly_id and a.tenant_id=public.current_tenant_id()));
+create policy agenda_company on public.agenda_items for all using (exists(select 1 from public.assemblies a where a.id=assembly_id and a.tenant_id=public.current_tenant_id() and public.is_company_user()));
+create policy votes_scoped on public.assembly_votes for select using (exists(select 1 from public.assemblies a where a.id=assembly_id and a.tenant_id=public.current_tenant_id()));
+create policy votes_self on public.assembly_votes for insert with check (voter_user_id = public.current_profile_id());
+create policy attendees_scoped on public.assembly_attendees for select using (exists(select 1 from public.assemblies a where a.id=assembly_id and a.tenant_id=public.current_tenant_id()));
+create policy push_self on public.push_subscriptions for all using (tenant_id=public.current_tenant_id() and user_id=public.current_profile_id()) with check (tenant_id=public.current_tenant_id() and user_id=public.current_profile_id());

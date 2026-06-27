@@ -68,6 +68,9 @@ import DocumentsView from './components/DocumentsView';
 import LoginView from './components/LoginView';
 import AdminConsoleView from './components/AdminConsoleView';
 import ProfileSettingsView from './components/ProfileSettingsView';
+import InvoicingView from './components/InvoicingView';
+import AssemblyView from './components/AssemblyView';
+import OwnerDashboardView from './components/OwnerDashboardView';
 
 const INITIAL_TENANT_REQUESTS: TenantRegistrationRequest[] = [
   {
@@ -623,6 +626,16 @@ export default function App() {
     const canManageDocuments = hasPermission(currentUser, 'docs:manage');
 
     switch (activeTab) {
+      case 'dashboard':
+        return (
+          <OwnerDashboardView
+            currentUser={currentUser}
+            properties={visibleProperties}
+            units={visibleUnits}
+            issues={visibleIssues}
+            onOpenIssues={() => setActiveTab('issues')}
+          />
+        );
       case 'admin':
         return (
           <AdminConsoleView
@@ -690,6 +703,10 @@ export default function App() {
             canPublishStatements={canPublishStatements}
           />
         );
+      case 'invoicing':
+        return <InvoicingView property={scopedSelectedProperty} properties={visibleProperties} expenses={expenses} units={units} />;
+      case 'assemblies':
+        return <AssemblyView property={scopedSelectedProperty} units={propertyUnits} currentUser={currentUser} />;
       case 'issues':
         return (
           <IssuesView
@@ -774,7 +791,7 @@ export default function App() {
   }
 
   return (
-    <div id="hpm-app-layout" className="min-h-screen pl-64 font-sans bg-surface text-on-surface">
+    <div id="hpm-app-layout" className="app-layout min-h-screen pl-64 font-sans bg-surface text-on-surface">
       {/* Left Sidebar */}
       <Sidebar
         activeTab={activeTab}
@@ -796,8 +813,8 @@ export default function App() {
         />
 
         {/* Dashboard inner content */}
-        <main className="flex-1 p-8 overflow-y-auto max-w-7xl w-full mx-auto">
-          {(currentUser.role === 'owner' || currentUser.role === 'resident') && (
+        <main className="app-main flex-1 p-8 overflow-y-auto max-w-7xl w-full mx-auto">
+          {(currentUser.role === 'owner' || currentUser.role === 'resident') && activeTab !== 'dashboard' && (
             <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
               <div className="text-sm font-bold text-primary">Περιορισμένη πρόσβαση portal</div>
               <p className="mt-1 text-sm text-on-surface-variant">

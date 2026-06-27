@@ -18,8 +18,16 @@ app.use((_req, res, next) => {
 });
 
 import paymentsRouter from './payments';
+import mydataRouter from './mydata';
+import ocrRouter from './ocr';
+import notificationsRouter from './notifications';
+import pushRouter from './push';
 app.use('/api/payments', paymentsRouter);
 app.use('/api/webhooks/vivawallet', paymentsRouter);
+app.use('/api/mydata', mydataRouter);
+app.use('/api/expenses', ocrRouter);
+app.use('/api', notificationsRouter);
+app.use('/api/push', pushRouter);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
