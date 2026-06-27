@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search, CheckCircle2, AlertCircle, RefreshCw, ArrowLeftRight, Check, Sparkles, Building, Landmark, Plus } from 'lucide-react';
+import { CheckCircle2, ArrowLeftRight, Check, Sparkles, Landmark, Plus, Link2 } from 'lucide-react';
 import { Property, Unit, BankTransaction, PaymentLedger } from '../types';
+import PaymentLinkModal from './PaymentLinkModal';
 
 interface BankLedgerViewProps {
   selectedProperty: Property | null;
@@ -34,6 +35,9 @@ export default function BankLedgerView({
 
   // Celebrate animation state
   const [celebrateId, setCelebrateId] = useState<string | null>(null);
+
+  // Payment link modal
+  const [paymentLinkUnit, setPaymentLinkUnit] = useState<Unit | null>(null);
 
   if (!selectedProperty) {
     return (
@@ -96,13 +100,25 @@ export default function BankLedgerView({
         </div>
 
         {canReconcileBank && (
-          <button
-            onClick={() => setShowCashForm(true)}
-            className="flex items-center justify-center gap-2 rounded-lg bg-[#97462f] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#772e19] transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Καταγραφή Μετρητών
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const unitsWithBalance = units.filter((u) => u.balance > 0);
+                setPaymentLinkUnit(unitsWithBalance[0] ?? units[0] ?? null);
+              }}
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#004349] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0d5c63] transition-colors"
+            >
+              <Link2 className="h-4 w-4" />
+              Σύνδεσμος Πληρωμής
+            </button>
+            <button
+              onClick={() => setShowCashForm(true)}
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#97462f] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#772e19] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Μετρητά
+            </button>
+          </div>
         )}
       </div>
 
@@ -297,6 +313,15 @@ export default function BankLedgerView({
             </table>
           </div>
         </div>
+      )}
+
+      {/* Payment Link Modal */}
+      {paymentLinkUnit && selectedProperty && (
+        <PaymentLinkModal
+          unit={paymentLinkUnit}
+          property={selectedProperty}
+          onClose={() => setPaymentLinkUnit(null)}
+        />
       )}
 
       {/* Cash Logging Modal Popup Form */}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, Printer, Check, Send, Download, Eye, AlertCircle, RefreshCw, Layers } from 'lucide-react';
+import { FileText, Printer, Check, Send, Eye, AlertCircle, Layers, CreditCard } from 'lucide-react';
 import { Property, Unit, Expense, DistributionRule } from '../types';
+import PaymentLinkModal from './PaymentLinkModal';
 import {
   buildStatements,
   calculateCategoryShare,
@@ -29,6 +30,7 @@ export default function StatementsView({
   canPublishStatements
 }: StatementsViewProps) {
   const [selectedUnitForInvoice, setSelectedUnitForInvoice] = useState<Unit | null>(null);
+  const [paymentLinkUnit, setPaymentLinkUnit] = useState<Unit | null>(null);
 
   if (!selectedProperty) {
     return (
@@ -210,6 +212,15 @@ export default function StatementsView({
         </table>
       </div>
 
+      {/* Viva Wallet Payment Link Modal */}
+      {paymentLinkUnit && (
+        <PaymentLinkModal
+          unit={paymentLinkUnit}
+          property={selectedProperty}
+          onClose={() => setPaymentLinkUnit(null)}
+        />
+      )}
+
       {/* Greek Invoice Statement Preview Dialog Modal */}
       {selectedUnitForInvoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -331,14 +342,24 @@ export default function StatementsView({
             <div className="bg-gray-100 p-4 flex gap-3 border-t border-gray-200">
               <button
                 onClick={() => window.print()}
-                className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-xs font-bold hover:bg-gray-50 flex items-center justify-center gap-1"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-xs font-bold hover:bg-gray-50 flex items-center justify-center gap-1"
               >
                 <Printer className="h-4 w-4" />
                 Εκτύπωση
               </button>
               <button
+                onClick={() => {
+                  setPaymentLinkUnit(selectedUnitForInvoice);
+                  setSelectedUnitForInvoice(null);
+                }}
+                className="flex-1 rounded-lg bg-[#004349] text-white px-4 py-2.5 text-xs font-bold hover:bg-[#0d5c63] flex items-center justify-center gap-1.5"
+              >
+                <CreditCard className="h-4 w-4" />
+                Πληρωμή Online (Viva)
+              </button>
+              <button
                 onClick={() => setSelectedUnitForInvoice(null)}
-                className="flex-1 rounded-lg bg-[#004349] text-white px-4 py-2.5 text-xs font-bold hover:bg-[#0d5c63]"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-xs font-bold hover:bg-gray-50"
               >
                 Κλείσιμο
               </button>
