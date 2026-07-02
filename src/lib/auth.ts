@@ -1,8 +1,12 @@
-export type UserRole = 'company_admin' | 'company_staff' | 'owner' | 'resident';
+import type { IndividualSignupMethod } from '../types';
+
+export type UserRole = 'platform_admin' | 'company_admin' | 'company_staff' | 'owner' | 'resident';
 export type AppPermission =
   | 'dashboard:view'
   | 'admin:view'
   | 'admin:manage'
+  | 'tenants:view'
+  | 'tenants:manage'
   | 'properties:view'
   | 'properties:manage'
   | 'units:view'
@@ -29,6 +33,10 @@ export type AppPermission =
 export type AppTab =
   | 'dashboard'
   | 'admin'
+  | 'tenants'
+  | 'users'
+  | 'subscriptions'
+  | 'settings'
   | 'properties'
   | 'units'
   | 'expenses'
@@ -68,6 +76,22 @@ const AUTH_STORAGE_KEY = 'hpm_auth_user';
 const DEFAULT_TENANT_ID = 'tenant-hellas-pm';
 
 const DEMO_USERS: Array<AuthUser & { password: string }> = [
+  {
+    // Seeded from installation with a default password.
+    id: 'usr-platform-1',
+    tenantId: 'tenant-atlas-platform',
+    fullName: 'Platform Administrator',
+    email: 'platform@atlaspm.gr',
+    password: 'platform123',
+    role: 'platform_admin',
+    companyName: 'Atlas PM',
+    phone: '210-0000000',
+    jobTitle: 'Platform Administrator',
+    status: 'active',
+    notificationEmail: true,
+    notificationSms: false,
+    avatarUrl: 'https://ui-avatars.com/api/?background=004349&color=fff&bold=true&name=Platform+Admin'
+  },
   {
     id: 'usr-admin-1',
     tenantId: 'tenant-hellas-pm',
@@ -140,6 +164,8 @@ const DEMO_USERS: Array<AuthUser & { password: string }> = [
 
 export function getRoleLabel(role: UserRole): string {
   switch (role) {
+    case 'platform_admin':
+      return 'Διαχειριστής Πλατφόρμας';
     case 'company_admin':
       return 'Διαχειριστής Εταιρείας';
     case 'company_staff':
@@ -154,9 +180,40 @@ export function getRoleLabel(role: UserRole): string {
 }
 
 const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
+  platform_admin: [
+    'dashboard:view',
+    'admin:view',
+    'admin:manage',
+    'tenants:view',
+    'tenants:manage',
+    'properties:view',
+    'properties:manage',
+    'units:view',
+    'units:manage',
+    'expenses:view',
+    'expenses:manage',
+    'rules:view',
+    'rules:manage',
+    'statements:view',
+    'statements:publish',
+    'invoicing:view',
+    'invoicing:manage',
+    'assemblies:view',
+    'assemblies:manage',
+    'issues:view',
+    'issues:manage',
+    'bank:view',
+    'bank:reconcile',
+    'docs:view',
+    'docs:manage',
+    'profile:view',
+    'profile:manage'
+  ],
   company_admin: [
     'admin:view',
     'admin:manage',
+    'tenants:view',
+    'tenants:manage',
     'properties:view',
     'properties:manage',
     'units:view',
@@ -182,6 +239,8 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
   ],
   company_staff: [
     'admin:view',
+    'tenants:view',
+    'tenants:manage',
     'properties:view',
     'units:view',
     'units:manage',
@@ -209,6 +268,10 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 const TAB_PERMISSION: Record<AppTab, AppPermission> = {
   dashboard: 'dashboard:view',
   admin: 'admin:view',
+  tenants: 'tenants:view',
+  users: 'admin:view',
+  subscriptions: 'admin:manage',
+  settings: 'admin:view',
   properties: 'properties:view',
   units: 'units:view',
   expenses: 'expenses:view',
@@ -236,6 +299,7 @@ export function canAccessTab(user: AuthUser, tab: AppTab): boolean {
 
 export function getDefaultTabForRole(role: UserRole): AppTab {
   if (role === 'owner' || role === 'resident') return 'dashboard';
+  if (role === 'platform_admin') return 'tenants';
   return 'properties';
 }
 
@@ -304,11 +368,40 @@ export function getDemoTenantUsers(): AuthUser[] {
 }
 
 export function canManageUserRole(actor: AuthUser, targetRole: UserRole): boolean {
-  if (actor.role === 'company_admin') return true;
+  if (actor.role === 'platform_admin') return true;
+  if (actor.role === 'company_admin') return targetRole !== 'platform_admin';
   if (actor.role === 'company_staff') return targetRole === 'owner' || targetRole === 'resident';
   return false;
 }
 
 export function canEditUser(actor: AuthUser, targetUser: AuthUser): boolean {
   return actor.id === targetUser.id || canManageUserRole(actor, targetUser.role);
+}
+
+/**
+ * Registers an Individual Property Manager and returns their session user.
+ * Individual PMs self-subscribe (Email / Google / Facebook / Apple) and become
+ * the admin of their own freshly-created tenant workspace.
+ * Demo-only: no real OAuth is performed for social providers.
+ */
+export function registerIndividualPropertyManager(input: {
+  fullName: string;
+  email: string;
+  method: IndividualSignupMethod;
+}): AuthUser {
+  const seed = `${input.email}-${input.method}`;
+  const user: AuthUser = {
+    id: `usr-ipm-${seed}`,
+    tenantId: `tenant-ipm-${seed}`,
+    fullName: input.fullName,
+    email: input.email,
+    role: 'company_admin',
+    companyName: input.fullName,
+    avatarUrl: `https://ui-avatars.com/api/?background=004349&color=fff&bold=true&name=${encodeURIComponent(input.fullName)}`,
+    status: 'active',
+    notificationEmail: true,
+    notificationSms: false
+  };
+  saveAuthUser(user);
+  return user;
 }

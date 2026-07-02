@@ -8,9 +8,15 @@ import {
   BankTransaction,
   PaymentLedger,
   Document,
+  Tenant,
+  TenantSubscription,
+  PmSettings,
   TenantRegistrationRequest,
   getSavedState,
   saveState,
+  INITIAL_TENANTS,
+  INITIAL_SUBSCRIPTIONS,
+  INITIAL_PM_SETTINGS,
   INITIAL_PROPERTIES,
   INITIAL_UNITS,
   INITIAL_EXPENSES,
@@ -67,6 +73,11 @@ import BankLedgerView from './components/BankLedgerView';
 import DocumentsView from './components/DocumentsView';
 import LoginView from './components/LoginView';
 import AdminConsoleView from './components/AdminConsoleView';
+import TenantsView from './components/TenantsView';
+import UsersView from './components/UsersView';
+import SubscriptionsView from './components/SubscriptionsView';
+import PmSettingsView from './components/PmSettingsView';
+import { platformCan } from './lib/rbac';
 import ProfileSettingsView from './components/ProfileSettingsView';
 import InvoicingView from './components/InvoicingView';
 import AssemblyView from './components/AssemblyView';
@@ -142,6 +153,18 @@ export default function App() {
 
   const [tenantRequests, setTenantRequests] = useState<TenantRegistrationRequest[]>(() =>
     getSavedState<TenantRegistrationRequest[]>('hpm_tenant_requests', INITIAL_TENANT_REQUESTS)
+  );
+
+  const [tenants, setTenants] = useState<Tenant[]>(() =>
+    getSavedState<Tenant[]>('hpm_tenants_v2', INITIAL_TENANTS)
+  );
+
+  const [subscriptions, setSubscriptions] = useState<TenantSubscription[]>(() =>
+    getSavedState<TenantSubscription[]>('hpm_subscriptions', INITIAL_SUBSCRIPTIONS)
+  );
+
+  const [pmSettings, setPmSettings] = useState<PmSettings>(() =>
+    getSavedState<PmSettings>('hpm_pm_settings', INITIAL_PM_SETTINGS)
   );
 
   const scopedSelectedProperty = useMemo(
@@ -237,6 +260,18 @@ export default function App() {
   useEffect(() => {
     saveState('hpm_tenant_requests', tenantRequests);
   }, [tenantRequests]);
+
+  useEffect(() => {
+    saveState('hpm_tenants_v2', tenants);
+  }, [tenants]);
+
+  useEffect(() => {
+    saveState('hpm_subscriptions', subscriptions);
+  }, [subscriptions]);
+
+  useEffect(() => {
+    saveState('hpm_pm_settings', pmSettings);
+  }, [pmSettings]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -590,6 +625,21 @@ export default function App() {
     setTenantUsers((prev) => [user, ...prev]);
   };
 
+  const handleAddUser = (user: AuthUser) => {
+    if (!currentUser || !platformCan(currentUser, 'ManageUsers')) return;
+    setTenantUsers((prev) => [user, ...prev]);
+  };
+
+  const handleUpdateSubscription = (subscription: TenantSubscription) => {
+    if (!currentUser || !platformCan(currentUser, 'ManagePlatformSubscription')) return;
+    setSubscriptions((prev) => prev.map((existing) => (existing.id === subscription.id ? subscription : existing)));
+  };
+
+  const handleUpdatePmSettings = (settings: PmSettings) => {
+    if (!currentUser || !platformCan(currentUser, 'ManagePMSettings')) return;
+    setPmSettings(settings);
+  };
+
   const handleUpdateTenantUser = (updatedUser: AuthUser) => {
     if (!currentUser || !canEditUser(currentUser, updatedUser)) return;
     setTenantUsers((prev) => prev.map((user) => (user.id === updatedUser.id ? updatedUser : user)));
@@ -604,6 +654,28 @@ export default function App() {
     setCurrentUser(updatedUser);
     saveAuthUser(updatedUser);
     setTenantUsers((prev) => prev.map((user) => (user.id === updatedUser.id ? updatedUser : user)));
+  };
+
+  const handleAddTenant = (tenant: Tenant) => {
+    if (!currentUser || !hasPermission(currentUser, 'tenants:manage')) return;
+    setTenants((prev) => [tenant, ...prev]);
+  };
+
+  const handleUpdateTenant = (tenant: Tenant) => {
+    if (!currentUser || !hasPermission(currentUser, 'tenants:manage')) return;
+    setTenants((prev) => prev.map((existing) => (existing.id === tenant.id ? tenant : existing)));
+  };
+
+  const handleDeleteTenant = (id: string) => {
+    if (!currentUser || !hasPermission(currentUser, 'tenants:manage')) return;
+    // Soft delete — flip IsDeleted so the record leaves the active list.
+    setTenants((prev) => prev.map((existing) => (existing.id === id ? { ...existing, isDeleted: true } : existing)));
+  };
+
+  const handlePublicTenantRequest = (request: TenantRegistrationRequest) => {
+    setTenantRequests((prev) =>
+      prev.some((existing) => existing.id === request.id) ? prev : [request, ...prev]
+    );
   };
 
   const handleApproveTenantRequest = (requestId: string) => {
@@ -624,6 +696,7 @@ export default function App() {
     const canManageIssues = hasPermission(currentUser, 'issues:manage');
     const canReconcileBank = hasPermission(currentUser, 'bank:reconcile');
     const canManageDocuments = hasPermission(currentUser, 'docs:manage');
+    const canManageTenants = hasPermission(currentUser, 'tenants:manage');
 
     switch (activeTab) {
       case 'dashboard':
@@ -645,6 +718,46 @@ export default function App() {
             onInviteUser={handleInviteUser}
             onUpdateUser={handleUpdateTenantUser}
             onApproveTenantRequest={handleApproveTenantRequest}
+          />
+        );
+      case 'tenants':
+        return (
+          <TenantsView
+            tenants={tenants}
+            onAddTenant={handleAddTenant}
+            onUpdateTenant={handleUpdateTenant}
+            onDeleteTenant={handleDeleteTenant}
+            canManageTenants={canManageTenants}
+          />
+        );
+      case 'users':
+        return (
+          <UsersView
+            users={
+              currentUser.role === 'platform_admin'
+                ? tenantUsers
+                : tenantUsers.filter((user) => user.tenantId === currentUser.tenantId)
+            }
+            currentUser={currentUser}
+            onAddUser={handleAddUser}
+            onUpdateUser={handleUpdateTenantUser}
+            canManageUsers={platformCan(currentUser, 'ManageUsers')}
+          />
+        );
+      case 'subscriptions':
+        return (
+          <SubscriptionsView
+            subscriptions={subscriptions}
+            canManage={platformCan(currentUser, 'ManagePlatformSubscription')}
+            onUpdateSubscription={handleUpdateSubscription}
+          />
+        );
+      case 'settings':
+        return (
+          <PmSettingsView
+            settings={pmSettings}
+            canManage={platformCan(currentUser, 'ManagePMSettings')}
+            onSave={handleUpdatePmSettings}
           />
         );
       case 'properties':
@@ -786,6 +899,7 @@ export default function App() {
       <LoginView
         onAuthenticated={setCurrentUser}
         loginOverride={dataMode === 'supabase' ? handleSupabaseLogin : undefined}
+        onSubmitTenantRequest={handlePublicTenantRequest}
       />
     );
   }

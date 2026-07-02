@@ -2,7 +2,7 @@ import React from 'react';
 import { AuthUser, canAccessTab, getRoleLabel } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
 
-export type ActiveTab = 'dashboard' | 'admin' | 'properties' | 'units' | 'expenses' | 'rules' | 'statements' | 'invoicing' | 'assemblies' | 'issues' | 'bank' | 'docs' | 'profile';
+export type ActiveTab = 'dashboard' | 'admin' | 'tenants' | 'users' | 'subscriptions' | 'settings' | 'properties' | 'units' | 'expenses' | 'rules' | 'statements' | 'invoicing' | 'assemblies' | 'issues' | 'bank' | 'docs' | 'profile';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -26,6 +26,10 @@ export default function Sidebar({ activeTab, setActiveTab, brandName, currentUse
   const menuItems: MenuItem[] = [
     { id: 'dashboard', label: t('nav.dashboard'), icon: 'space_dashboard' },
     { id: 'admin', label: t('nav.admin'), icon: 'admin_panel_settings' },
+    { id: 'tenants', label: t('nav.tenants'), icon: 'groups' },
+    { id: 'users', label: t('nav.users'), icon: 'manage_accounts' },
+    { id: 'subscriptions', label: t('nav.subscriptions'), icon: 'credit_card' },
+    { id: 'settings', label: t('nav.pmsettings'), icon: 'tune' },
     { id: 'properties', label: t('nav.properties'), icon: 'corporate_fare' },
     { id: 'units', label: t('nav.units'), icon: 'home_work' },
     { id: 'expenses', label: t('nav.expenses'), icon: 'receipt_long' },

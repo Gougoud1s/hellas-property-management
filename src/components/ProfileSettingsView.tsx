@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { Camera, Lock, Save, UserCircle } from 'lucide-react';
+import { Camera, Lock, Save, ShieldCheck, UserCircle } from 'lucide-react';
 import { AuthUser, getRoleLabel } from '../lib/auth';
+import { getPlatformPermissions, getPlatformRoleLabel } from '../lib/rbac';
 
 interface ProfileSettingsViewProps {
   currentUser: AuthUser;
   onUpdateProfile: (user: AuthUser) => void;
 }
+
+const PLATFORM_AREAS = [
+  { key: 'PlatformSubscription', label: 'Συνδρομή πλατφόρμας' },
+  { key: 'PMSettings', label: 'Ρυθμίσεις εταιρείας' },
+  { key: 'PropertiesData', label: 'Δεδομένα ακινήτων' },
+  { key: 'Users', label: 'Χρήστες' }
+] as const;
 
 export default function ProfileSettingsView({ currentUser, onUpdateProfile }: ProfileSettingsViewProps) {
   const [fullName, setFullName] = useState(currentUser.fullName);
@@ -143,6 +151,43 @@ export default function ProfileSettingsView({ currentUser, onUpdateProfile }: Pr
                 />
               </label>
             </div>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+            <h3 className="flex items-center gap-2 text-sm font-black uppercase text-primary">
+              <ShieldCheck className="h-4 w-4" />
+              Ρόλος & Δικαιώματα πλατφόρμας
+            </h3>
+            <div className="mt-3 flex items-center gap-2 text-sm">
+              <span className="text-outline">Ρόλος:</span>
+              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+                {getPlatformRoleLabel(currentUser)}
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {PLATFORM_AREAS.map((area) => {
+                const perms = getPlatformPermissions(currentUser);
+                const canRead = perms.includes(`Read${area.key}` as (typeof perms)[number]);
+                const canManage = perms.includes(`Manage${area.key}` as (typeof perms)[number]);
+                return (
+                  <div key={area.key} className="flex items-center justify-between rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2">
+                    <span className="text-xs font-semibold text-on-surface">{area.label}</span>
+                    <span className="flex gap-1">
+                      {canManage ? (
+                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-700">Διαχείριση</span>
+                      ) : canRead ? (
+                        <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-[10px] font-bold text-on-surface-variant">Ανάγνωση</span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-outline">—</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-outline">
+              «Διαχείριση» περιλαμβάνει Ανάγνωση + Δημιουργία/Επεξεργασία/Διαγραφή. Τα δικαιώματα καθορίζονται από τον ρόλο και δεν επεξεργάζονται εδώ.
+            </p>
           </div>
 
           <button className="flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-[#0d5c63]">

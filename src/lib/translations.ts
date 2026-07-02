@@ -1,6 +1,10 @@
 export const translations = {
   'nav.dashboard': { el: 'Επισκόπηση', en: 'Dashboard' },
   'nav.admin': { el: 'Διαχείριση ομάδας', en: 'Team administration' },
+  'nav.tenants': { el: 'Πελάτες / Tenants', en: 'Tenants' },
+  'nav.users': { el: 'Χρήστες', en: 'Users' },
+  'nav.subscriptions': { el: 'Συνδρομές', en: 'Subscriptions' },
+  'nav.pmsettings': { el: 'Ρυθμίσεις Εταιρείας', en: 'PM Settings' },
   'nav.properties': { el: 'Πολυκατοικίες', en: 'Properties' },
   'nav.units': { el: 'Μονάδες & Χιλιοστά', en: 'Units & shares' },
   'nav.expenses': { el: 'Έξοδα & Δαπάνες', en: 'Expenses' },
