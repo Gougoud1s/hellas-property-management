@@ -808,6 +808,7 @@ export default function App() {
           properties={visibleProperties}
           onSelectProperty={setSelectedProperty}
           currentUser={currentUser}
+          brandName="Atlas PM"
           onLogout={handleLogout}
           onOpenProfile={() => setActiveTab('profile')}
         />

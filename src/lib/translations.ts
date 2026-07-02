@@ -12,8 +12,15 @@ export const translations = {
   'nav.bank': { el: 'Τραπεζικό Καθολικό', en: 'Payment ledger' },
   'nav.docs': { el: 'Ψηφιακό Αρχείο', en: 'Documents' },
   'nav.profile': { el: 'Το Προφίλ μου', en: 'My profile' },
+  'nav.settings': { el: 'Ρυθμίσεις', en: 'Settings' },
+  'nav.home': { el: 'Αρχική', en: 'Home' },
   'header.property': { el: 'Επιλογή Κτιρίου', en: 'Choose property' },
   'header.language': { el: 'Γλώσσα', en: 'Language' },
+  'header.platform': { el: 'Πλατφόρμα', en: 'Platform' },
+  'header.tenant': { el: 'Οργανισμός', en: 'Organization' },
+  'header.profile': { el: 'Το Προφίλ μου', en: 'My profile' },
+  'header.logout': { el: 'Αποσύνδεση', en: 'Log out' },
+  'header.account': { el: 'Λογαριασμός', en: 'Account' },
   'common.demo': { el: 'Λειτουργία επίδειξης', en: 'Demo mode' }
 } as const;
 
