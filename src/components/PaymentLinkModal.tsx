@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Link2, Copy, ExternalLink, CheckCircle2, Loader2, CreditCard, AlertCircle } from 'lucide-react';
 import { Unit, Property } from '../types';
+import { apiFetch } from '../lib/apiClient';
 
 interface PaymentLinkModalProps {
   unit: Unit;
@@ -26,7 +27,7 @@ export default function PaymentLinkModal({ unit, property, onClose }: PaymentLin
     setErrorMsg('');
 
     try {
-      const res = await fetch('/api/payments/create-order', {
+      const res = await apiFetch('/api/payments/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

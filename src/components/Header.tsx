@@ -64,6 +64,10 @@ export default function Header({
   const formatTime = (date: Date) =>
     date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
+  // The platform manager operates above individual buildings: the per-property
+  // switcher and property-level activity feed are not part of their job.
+  const isPlatformManager = currentUser.role === 'platform_admin';
+
   const tenantInitials = currentUser.companyName
     .split(' ')
     .filter(Boolean)
@@ -82,6 +86,12 @@ export default function Header({
     <header ref={headerRef} id="app-header" className="sticky top-0 z-40 flex h-16 w-full items-center justify-between gap-4 border-b border-outline-variant bg-surface px-6">
       {/* LEFT — working context (property selector) */}
       <div className="flex min-w-0 items-center">
+        {isPlatformManager ? (
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <span className="material-symbols-outlined text-xl">groups</span>
+            <span className="truncate">Διαχείριση Tenants</span>
+          </div>
+        ) : (
         <div className="relative flex items-center">
           <button
             id="property-selector-btn"
@@ -121,6 +131,7 @@ export default function Header({
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* MIDDLE — live system clock */}
@@ -141,7 +152,8 @@ export default function Header({
           <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>EN</button>
         </div>
 
-        {/* Notifications */}
+        {/* Notifications — property-level activity, not shown to the platform manager */}
+        {!isPlatformManager && (
         <div className="relative">
           <button
             id="notifications-bell"
@@ -171,6 +183,7 @@ export default function Header({
             </div>
           )}
         </div>
+        )}
 
         {/* Divider */}
         <span className="hidden h-6 w-px bg-outline-variant sm:block"></span>

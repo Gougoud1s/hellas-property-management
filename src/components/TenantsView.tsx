@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   Globe,
   ImagePlus,
   MoreVertical,
@@ -15,6 +16,7 @@ import {
   Plus,
   Save,
   Search,
+  TrendingUp,
   Trash2,
   UserRound,
   Users,
@@ -25,18 +27,58 @@ import {
   MeansOfContact,
   MocType,
   PmcOnboardingStage,
+  SUBSCRIPTION_PLANS,
+  SubscriptionPlan,
+  SubscriptionStatus,
   Tenant,
   TenantContact,
+  TenantSubscription,
   TenantType
 } from '../types';
 import { formatVat, isValidGreekVat } from '../lib/vat';
+import { sanitizeExternalUrl } from '../lib/safeUrl';
 
 interface TenantsViewProps {
   tenants: Tenant[];
+  subscriptions: TenantSubscription[];
   onAddTenant: (tenant: Tenant) => void;
   onUpdateTenant: (tenant: Tenant) => void;
   onDeleteTenant: (id: string) => void;
   canManageTenants: boolean;
+}
+
+const PLAN_ORDER: SubscriptionPlan[] = ['starter', 'professional', 'enterprise'];
+
+const SUBSCRIPTION_STATUS_META: Record<SubscriptionStatus, { label: string; className: string }> = {
+  active: { label: 'Ενεργή', className: 'bg-teal-50 text-teal-700' },
+  trial: { label: 'Δοκιμή', className: 'bg-sky-50 text-sky-700' },
+  past_due: { label: 'Ληξιπρόθεσμη', className: 'bg-amber-50 text-amber-700' },
+  canceled: { label: 'Ακυρωμένη', className: 'bg-surface-container-high text-on-surface-variant' }
+};
+
+const PLAN_BADGE_CLASS: Record<SubscriptionPlan, string> = {
+  starter: 'bg-surface-container-high text-on-surface-variant',
+  professional: 'bg-primary/10 text-primary',
+  enterprise: 'bg-secondary/10 text-secondary'
+};
+
+/** Compact subscription pill (plan + status) used in the tenant list and editor. */
+function SubscriptionBadges({ sub }: { sub?: TenantSubscription }) {
+  if (!sub) {
+    return <span className="text-xs text-outline">— Χωρίς συνδρομή</span>;
+  }
+  const plan = SUBSCRIPTION_PLANS[sub.plan];
+  const status = SUBSCRIPTION_STATUS_META[sub.status];
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${PLAN_BADGE_CLASS[sub.plan]}`}>
+        {plan.label}
+      </span>
+      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${status.className}`}>
+        {status.label}
+      </span>
+    </div>
+  );
 }
 
 const PAGE_SIZE_OPTIONS = [5, 10, 50, 100];
@@ -153,15 +195,17 @@ function draftFrom(tenant: Tenant | null): Tenant {
 
 interface TenantEditorProps {
   original: Tenant | null;
+  subscription?: TenantSubscription;
   flash: string | null;
   onBack: () => void;
   onCommit: (tenant: Tenant, opts: { keepEditing: boolean }) => void;
   onRequestDelete: (id: string, name: string) => void;
 }
 
-function TenantEditor({ original, flash, onBack, onCommit, onRequestDelete }: TenantEditorProps) {
+function TenantEditor({ original, subscription, flash, onBack, onCommit, onRequestDelete }: TenantEditorProps) {
   const [draft, setDraft] = useState<Tenant>(() => draftFrom(original));
   const [touched, setTouched] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -214,11 +258,26 @@ function TenantEditor({ original, flash, onBack, onCommit, onRequestDelete }: Te
       contacts: prev.contacts.map((c) => (c.id === contactId ? { ...c, mocs: c.mocs.filter((m) => m.id !== mocId) } : c))
     }));
 
+  // Logos are stored inline as base64 data-URIs; the whole app state shares a
+  // ~5 MB localStorage budget, so cap uploads well below it. base64 inflates the
+  // byte size ~33%, so a 512 KB source file is a safe ceiling.
+  const MAX_LOGO_BYTES = 512 * 1024;
   const handleLogo = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-selecting the same file after an error
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Επιλέξτε αρχείο εικόνας.');
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setLogoError(`Το logo είναι πολύ μεγάλο (${Math.round(file.size / 1024)} KB). Μέγιστο 512 KB.`);
+      return;
+    }
+    setLogoError(null);
     const reader = new FileReader();
     reader.onload = () => set('logoUrl', typeof reader.result === 'string' ? reader.result : undefined);
+    reader.onerror = () => setLogoError('Αποτυχία ανάγνωσης του αρχείου.');
     reader.readAsDataURL(file);
   };
 
@@ -359,6 +418,9 @@ function TenantEditor({ original, flash, onBack, onCommit, onRequestDelete }: Te
                     Αφαίρεση
                   </button>
                 )}
+                {logoError && (
+                  <p className="max-w-[120px] text-center text-[10px] font-semibold text-error">{logoError}</p>
+                )}
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogo} />
               </div>
 
@@ -497,6 +559,41 @@ function TenantEditor({ original, flash, onBack, onCommit, onRequestDelete }: Te
 
         {/* Read-only fields */}
         <div className="space-y-6">
+          {/* Subscription — the platform manager's key tenant stat */}
+          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-black uppercase text-primary">
+              <CreditCard className="h-4 w-4" />
+              Συνδρομή
+            </h3>
+            {subscription ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <SubscriptionBadges sub={subscription} />
+                  <span className="text-sm font-black text-on-surface">
+                    {SUBSCRIPTION_PLANS[subscription.plan].pricePerMonth}€
+                    <span className="text-xs font-medium text-outline">/μήνα</span>
+                  </span>
+                </div>
+                <dl className="space-y-3 text-sm">
+                  <ReadOnlyRow label="Θέσεις χρηστών" value={String(subscription.seats)} />
+                  <ReadOnlyRow
+                    label="Όριο πολυκατοικιών"
+                    value={
+                      SUBSCRIPTION_PLANS[subscription.plan].propertiesLimit === null
+                        ? 'Απεριόριστες'
+                        : `Έως ${SUBSCRIPTION_PLANS[subscription.plan].propertiesLimit}`
+                    }
+                  />
+                  <ReadOnlyRow label="Ανανέωση" value={subscription.renewalDate} mono />
+                </dl>
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-outline-variant px-4 py-6 text-center text-xs text-outline">
+                Δεν υπάρχει ενεργή συνδρομή για αυτόν τον tenant.
+              </p>
+            )}
+          </section>
+
           <section className="rounded-xl border border-outline-variant bg-surface-container-low p-5">
             <h3 className="mb-4 text-sm font-black uppercase text-primary">Μόνο για ανάγνωση</h3>
             <dl className="space-y-3 text-sm">
@@ -598,7 +695,7 @@ type PendingAction =
   | { kind: 'delete-one'; id: string; name: string; fromEditor: boolean }
   | { kind: 'delete-many'; ids: string[] };
 
-export default function TenantsView({ tenants, onAddTenant, onUpdateTenant, onDeleteTenant, canManageTenants }: TenantsViewProps) {
+export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpdateTenant, onDeleteTenant, canManageTenants }: TenantsViewProps) {
   const [query, setQuery] = useState('');
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
@@ -615,6 +712,27 @@ export default function TenantsView({ tenants, onAddTenant, onUpdateTenant, onDe
   }, [flash]);
 
   const visible = useMemo(() => tenants.filter((t) => !t.isDeleted), [tenants]);
+
+  // Subscriptions are the platform manager's core tenant stat, so we index them
+  // by tenant id to surface plan/status inline in the list and editor.
+  const subscriptionByTenant = useMemo(() => {
+    const map = new Map<string, TenantSubscription>();
+    subscriptions.forEach((sub) => map.set(sub.tenantId, sub));
+    return map;
+  }, [subscriptions]);
+
+  // Aggregate stats across the active tenant base.
+  const stats = useMemo(() => {
+    const companies = visible.filter((t) => t.tenantType === 'company').length;
+    const individuals = visible.length - companies;
+    const active = visible.filter((t) => t.isActive).length;
+    const mrr = visible.reduce((sum, t) => {
+      const sub = subscriptionByTenant.get(t.id);
+      if (!sub || sub.status === 'canceled') return sum;
+      return sum + SUBSCRIPTION_PLANS[sub.plan].pricePerMonth;
+    }, 0);
+    return { total: visible.length, companies, individuals, active, mrr };
+  }, [visible, subscriptionByTenant]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -722,6 +840,7 @@ export default function TenantsView({ tenants, onAddTenant, onUpdateTenant, onDe
         <TenantEditor
           key={original?.id ?? 'new'}
           original={original}
+          subscription={original ? subscriptionByTenant.get(original.id) : undefined}
           flash={view.mode === 'edit' ? flash : null}
           onBack={() => setView({ mode: 'list' })}
           onCommit={commit}
@@ -777,6 +896,42 @@ export default function TenantsView({ tenants, onAddTenant, onUpdateTenant, onDe
               <span className="sm:hidden">Νέος</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* STATS — the platform manager's at-a-glance tenant base */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase text-outline">
+            <Users className="h-4 w-4 text-primary" />
+            Σύνολο tenants
+          </div>
+          <div className="mt-2 text-2xl font-black text-primary">{stats.total}</div>
+          <div className="text-[11px] text-outline">{stats.active} ενεργοί</div>
+        </div>
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase text-outline">
+            <Building2 className="h-4 w-4 text-primary" />
+            Εταιρείες
+          </div>
+          <div className="mt-2 text-2xl font-black text-on-surface">{stats.companies}</div>
+          <div className="text-[11px] text-outline">εταιρείες διαχείρισης</div>
+        </div>
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase text-outline">
+            <UserRound className="h-4 w-4 text-secondary" />
+            Ιδιώτες
+          </div>
+          <div className="mt-2 text-2xl font-black text-on-surface">{stats.individuals}</div>
+          <div className="text-[11px] text-outline">ιδιώτες διαχειριστές</div>
+        </div>
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase text-outline">
+            <TrendingUp className="h-4 w-4 text-teal-600" />
+            MRR
+          </div>
+          <div className="mt-2 text-2xl font-black text-on-surface">{stats.mrr.toLocaleString('el-GR')}€</div>
+          <div className="text-[11px] text-outline">μηνιαία έσοδα συνδρομών</div>
         </div>
       </div>
 
@@ -843,6 +998,7 @@ export default function TenantsView({ tenants, onAddTenant, onUpdateTenant, onDe
                 <th className="w-16 px-6 py-4">Logo</th>
                 <th className="px-6 py-4">Επωνυμία / Όνομα</th>
                 <th className="w-32 px-6 py-4">Κατάσταση</th>
+                <th className="w-56 px-6 py-4">Συνδρομή</th>
                 <th className="px-6 py-4">Στοιχεία επικοινωνίας</th>
                 {canManageTenants && <th className="w-24 px-6 py-4 text-right">Ενέργειες</th>}
               </tr>
@@ -876,18 +1032,22 @@ export default function TenantsView({ tenants, onAddTenant, onUpdateTenant, onDe
                       {TYPE_LABEL[tenant.tenantType]}
                       {tenant.vatNumber ? ` · ${tenant.vatNumber}` : ''}
                     </div>
-                    {tenant.websiteUrl && (
-                      <a
-                        href={tenant.websiteUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-                      >
-                        <Globe className="h-3 w-3" />
-                        {tenant.websiteUrl.replace(/^https?:\/\//, '')}
-                      </a>
-                    )}
+                    {(() => {
+                      const safeUrl = sanitizeExternalUrl(tenant.websiteUrl);
+                      if (!safeUrl) return null;
+                      return (
+                        <a
+                          href={safeUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                        >
+                          <Globe className="h-3 w-3" />
+                          {tenant.websiteUrl!.replace(/^https?:\/\//, '')}
+                        </a>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4">
                     <span
@@ -897,6 +1057,9 @@ export default function TenantsView({ tenants, onAddTenant, onUpdateTenant, onDe
                     >
                       {tenant.isActive ? 'Ενεργός' : 'Ανενεργός'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <SubscriptionBadges sub={subscriptionByTenant.get(tenant.id)} />
                   </td>
                   <td className="px-6 py-4">
                     <span className="block max-w-xl select-all whitespace-normal break-words font-mono text-xs text-on-surface-variant">
@@ -937,7 +1100,7 @@ export default function TenantsView({ tenants, onAddTenant, onUpdateTenant, onDe
 
               {pageRows.length === 0 && (
                 <tr>
-                  <td colSpan={canManageTenants ? 6 : 4} className="px-6 py-16 text-center">
+                  <td colSpan={canManageTenants ? 7 : 5} className="px-6 py-16 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center text-outline">
                       <Users className="h-10 w-10 text-outline-variant" />
                       <p className="mt-3 text-sm font-semibold text-on-surface-variant">Δεν βρέθηκαν tenants</p>

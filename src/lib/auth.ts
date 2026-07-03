@@ -293,7 +293,21 @@ export function hasPermission(user: AuthUser, permission: AppPermission): boolea
   return getPermissionsForRole(user.role).includes(permission);
 }
 
+/**
+ * The platform administrator runs the SaaS itself, so their world is the
+ * platform's *customers* — the tenants (property-management companies and
+ * individual managers) and the stats that describe them. All the day-to-day
+ * property-operations surfaces (buildings, units, expenses, statements, bank,
+ * issues, docs, PM settings, …) belong to the tenants, not to the platform
+ * manager, so they are intentionally kept out of this role's navigation.
+ * Profile stays available for the manager's own account.
+ */
+const PLATFORM_ADMIN_TABS: AppTab[] = ['tenants', 'profile'];
+
 export function canAccessTab(user: AuthUser, tab: AppTab): boolean {
+  if (user.role === 'platform_admin' && !PLATFORM_ADMIN_TABS.includes(tab)) {
+    return false;
+  }
   return hasPermission(user, TAB_PERMISSION[tab]);
 }
 

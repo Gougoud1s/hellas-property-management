@@ -107,6 +107,7 @@ export default function App() {
     return savedUser ? getDefaultTabForRole(savedUser.role) : 'properties';
   });
   const supabaseInitialized = useRef(false);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
 
   // Load state or use initial mock databases
   const [properties, setProperties] = useState<Property[]>(() =>
@@ -287,6 +288,34 @@ export default function App() {
       setSelectedProperty(nextProperty);
     }
   }, [currentUser, properties, selectedProperty]);
+
+  // Make the demo's security posture explicit (S1): in local-demo mode the role
+  // lives in localStorage and is trusted verbatim — there is NO server-side
+  // authorization. This is fine for demos, but the app MUST run in 'supabase'
+  // mode (with server-enforced auth + RLS) before real users, data, or money.
+  useEffect(() => {
+    if (dataMode === 'local-demo') {
+      console.warn(
+        '[Atlas PM] Running in LOCAL-DEMO mode: authorization is client-side only and NOT secure. ' +
+          'Switch VITE_DATA_MODE=supabase for server-enforced auth before production.'
+      );
+    }
+  }, [dataMode]);
+
+  // Surface localStorage write failures (e.g. quota exceeded from base64 logos)
+  // instead of losing the user's changes silently.
+  useEffect(() => {
+    const onQuota = (event: Event) => {
+      const detail = (event as CustomEvent<{ quota?: boolean }>).detail;
+      setStorageWarning(
+        detail?.quota
+          ? 'Ο τοπικός αποθηκευτικός χώρος γέμισε. Οι τελευταίες αλλαγές ΔΕΝ αποθηκεύτηκαν — αφαιρέστε μεγάλα logo/αρχεία ή συνδεθείτε στον cloud (Supabase) backend.'
+          : 'Αποτυχία τοπικής αποθήκευσης. Οι τελευταίες αλλαγές ΔΕΝ αποθηκεύτηκαν.'
+      );
+    };
+    window.addEventListener('hpm:storage-quota-exceeded', onQuota);
+    return () => window.removeEventListener('hpm:storage-quota-exceeded', onQuota);
+  }, []);
 
   // Supabase: restore session + load snapshot on mount
   useEffect(() => {
@@ -724,6 +753,7 @@ export default function App() {
         return (
           <TenantsView
             tenants={tenants}
+            subscriptions={subscriptions}
             onAddTenant={handleAddTenant}
             onUpdateTenant={handleUpdateTenant}
             onDeleteTenant={handleDeleteTenant}
@@ -926,6 +956,19 @@ export default function App() {
           onLogout={handleLogout}
           onOpenProfile={() => setActiveTab('profile')}
         />
+
+        {storageWarning && (
+          <div role="alert" className="flex items-start justify-between gap-4 border-b border-amber-300 bg-amber-50 px-6 py-3 text-sm text-amber-900">
+            <span className="font-semibold">{storageWarning}</span>
+            <button
+              onClick={() => setStorageWarning(null)}
+              aria-label="Κλείσιμο"
+              className="flex-none rounded px-2 py-0.5 text-amber-700 hover:bg-amber-100"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Dashboard inner content */}
         <main className="app-main flex-1 p-8 overflow-y-auto max-w-7xl w-full mx-auto">

@@ -1018,10 +1018,34 @@ export function getSavedState<T>(key: string, defaultValue: T): T {
   }
 }
 
-export function saveState<T>(key: string, value: T): void {
+/**
+ * Persists a slice of app state to localStorage.
+ *
+ * Returns `false` (instead of silently swallowing) when the write fails — most
+ * importantly on `QuotaExceededError`, which the ~5 MB localStorage budget hits
+ * easily once base64 logos/attachments accumulate. On failure it also dispatches
+ * a `hpm:storage-quota-exceeded` event so the UI can warn the user rather than
+ * losing their edits without a trace.
+ */
+export function saveState<T>(key: string, value: T): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch (e) {
-    console.error("Failed to save state to localStorage", e);
+    const isQuota =
+      e instanceof DOMException &&
+      (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+    console.error(
+      isQuota
+        ? `[storage] localStorage quota exceeded while saving "${key}" — change NOT persisted.`
+        : `[storage] Failed to save "${key}" to localStorage — change NOT persisted.`,
+      e
+    );
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('hpm:storage-quota-exceeded', { detail: { key, quota: isQuota } })
+      );
+    }
+    return false;
   }
 }

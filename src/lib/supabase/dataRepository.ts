@@ -203,10 +203,27 @@ async function resolveUnitUuid(code: string): Promise<string> {
   return data.id as string;
 }
 
+// ── Tenant scoping ────────────────────────────────────────────────────────────
+
+/**
+ * Defense-in-depth: never rely on Postgres RLS as the *only* authorization
+ * layer. Every read/write is also explicitly scoped to the caller's tenant here
+ * in the repository, so a misconfigured or disabled policy can't silently leak
+ * or cross-write another tenant's data. Platform admins are the sole exception
+ * (they operate across tenants) and must reach data through an admin path.
+ */
+function scopeToTenant<T>(query: T, user: AuthUser): T {
+  if (user.role === 'platform_admin') return query;
+  // Cast to call `.eq` without pulling Supabase's deeply-nested builder generics
+  // into inference (which trips TS2589). The builder returns its own type, so
+  // the scoped query keeps the same shape as the input.
+  return (query as unknown as { eq: (column: string, value: string) => T }).eq('tenant_id', user.tenantId);
+}
+
 // ── Repository implementation ─────────────────────────────────────────────────
 
 export const supabaseDataRepository: TenantDataRepository = {
-  async loadSnapshot(_user: AuthUser): Promise<TenantSnapshot> {
+  async loadSnapshot(user: AuthUser): Promise<TenantSnapshot> {
     const [
       { data: propsRaw },
       { data: unitsRaw },
@@ -219,15 +236,15 @@ export const supabaseDataRepository: TenantDataRepository = {
       { data: usersRaw },
       { data: requestsRaw },
     ] = await Promise.all([
-      supabase.from('properties').select('*'),
-      supabase.from('units').select('*'),
-      supabase.from('expenses').select('*'),
-      supabase.from('distribution_rules').select('*'),
-      supabase.from('issues').select('*'),
-      supabase.from('bank_transactions').select('*').is('reconciled_at', null),
-      supabase.from('payment_ledger').select('*'),
-      supabase.from('documents').select('*'),
-      supabase.from('user_profiles').select('*'),
+      scopeToTenant(supabase.from('properties').select('*'), user),
+      scopeToTenant(supabase.from('units').select('*'), user),
+      scopeToTenant(supabase.from('expenses').select('*'), user),
+      scopeToTenant(supabase.from('distribution_rules').select('*'), user),
+      scopeToTenant(supabase.from('issues').select('*'), user),
+      scopeToTenant(supabase.from('bank_transactions').select('*'), user).is('reconciled_at', null),
+      scopeToTenant(supabase.from('payment_ledger').select('*'), user),
+      scopeToTenant(supabase.from('documents').select('*'), user),
+      scopeToTenant(supabase.from('user_profiles').select('*'), user),
       supabase.from('tenant_registration_requests').select('*'),
     ]);
 
@@ -249,11 +266,12 @@ export const supabaseDataRepository: TenantDataRepository = {
     return { properties, units, expenses, rules, issues, bankTransactions, paymentLedger, documents, users, tenantRequests };
   },
 
-  async createProperty(_user: AuthUser, prop: Omit<Property, 'id' | 'issuesCount' | 'dues' | 'status'>): Promise<Property> {
+  async createProperty(user: AuthUser, prop: Omit<Property, 'id' | 'issuesCount' | 'dues' | 'status'>): Promise<Property> {
     const code = `PRP-${Math.floor(1000 + Math.random() * 9000)}`;
     const { data, error } = await supabase
       .from('properties')
       .insert({
+        tenant_id: user.tenantId,
         code,
         name: prop.name,
         address: prop.address,
@@ -269,11 +287,12 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapProperty(data, [], []);
   },
 
-  async createUnit(_user: AuthUser, propertyCode: string, unit: Unit): Promise<Unit> {
+  async createUnit(user: AuthUser, propertyCode: string, unit: Unit): Promise<Unit> {
     const propertyUuid = await resolvePropertyUuid(propertyCode);
     const { data, error } = await supabase
       .from('units')
       .insert({
+        tenant_id: user.tenantId,
         property_id: propertyUuid,
         code: unit.id,
         floor: unit.floor,
@@ -325,11 +344,12 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapUnit(data, new Map([[data.property_id, propertyCode]]));
   },
 
-  async createExpense(_user: AuthUser, propertyCode: string, expense: Expense): Promise<Expense> {
+  async createExpense(user: AuthUser, propertyCode: string, expense: Expense): Promise<Expense> {
     const propertyUuid = await resolvePropertyUuid(propertyCode);
     const { data, error } = await supabase
       .from('expenses')
       .insert({
+        tenant_id: user.tenantId,
         property_id: propertyUuid,
         expense_date: expense.date,
         supplier: expense.supplier,
@@ -344,15 +364,13 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapExpense(data, new Map([[data.property_id, propertyCode]]));
   },
 
-  async deleteExpense(_user: AuthUser, expenseId: string): Promise<void> {
-    const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+  async deleteExpense(user: AuthUser, expenseId: string): Promise<void> {
+    const { error } = await scopeToTenant(supabase.from('expenses').delete(), user).eq('id', expenseId);
     if (error) throw error;
   },
 
-  async updateExpenseStatus(_user: AuthUser, expenseId: string, status: Expense['status']): Promise<Expense> {
-    const { data, error } = await supabase
-      .from('expenses')
-      .update({ status })
+  async updateExpenseStatus(user: AuthUser, expenseId: string, status: Expense['status']): Promise<Expense> {
+    const { data, error } = await scopeToTenant(supabase.from('expenses').update({ status }), user)
       .eq('id', expenseId)
       .select('*, properties(code)')
       .single();
@@ -361,11 +379,12 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapExpense(data, new Map([[data.property_id, propCode]]));
   },
 
-  async updateRule(_user: AuthUser, propertyCode: string, rule: DistributionRule): Promise<DistributionRule> {
+  async updateRule(user: AuthUser, propertyCode: string, rule: DistributionRule): Promise<DistributionRule> {
     const propertyUuid = await resolvePropertyUuid(propertyCode);
     const { data, error } = await supabase
       .from('distribution_rules')
       .upsert({
+        tenant_id: user.tenantId,
         property_id: propertyUuid,
         category: rule.category,
         method: rule.method,
@@ -378,7 +397,7 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapRule(data, new Map([[data.property_id, propertyCode]]));
   },
 
-  async createIssue(_user: AuthUser, propertyCode: string, issue: Issue): Promise<Issue> {
+  async createIssue(user: AuthUser, propertyCode: string, issue: Issue): Promise<Issue> {
     const propertyUuid = await resolvePropertyUuid(propertyCode);
     let unitUuid: string | null = null;
     if (issue.unitId) {
@@ -387,6 +406,7 @@ export const supabaseDataRepository: TenantDataRepository = {
     const { data, error } = await supabase
       .from('issues')
       .insert({
+        tenant_id: user.tenantId,
         property_id: propertyUuid,
         unit_id: unitUuid,
         title: issue.title,
@@ -454,6 +474,7 @@ export const supabaseDataRepository: TenantDataRepository = {
     const { data, error } = await supabase
       .from('payment_ledger')
       .insert({
+        tenant_id: _user.tenantId,
         property_id: propUuid,
         unit_id: unitUuid,
         paid_at: new Date().toISOString().split('T')[0],
@@ -470,7 +491,7 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapLedger(data, new Map([[propUuid, propertyCode]]), new Map([[unitUuid, unitId]]));
   },
 
-  async createCashPayment(_user: AuthUser, propertyCode: string, unitId: string, amount: number, payer: string): Promise<PaymentLedger> {
+  async createCashPayment(user: AuthUser, propertyCode: string, unitId: string, amount: number, payer: string): Promise<PaymentLedger> {
     const [propertyUuid, unitUuid] = await Promise.all([
       resolvePropertyUuid(propertyCode),
       resolveUnitUuid(unitId),
@@ -481,6 +502,7 @@ export const supabaseDataRepository: TenantDataRepository = {
     const { data, error } = await supabase
       .from('payment_ledger')
       .insert({
+        tenant_id: user.tenantId,
         property_id: propertyUuid,
         unit_id: unitUuid,
         paid_at: new Date().toISOString().split('T')[0],
@@ -497,11 +519,12 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapLedger(data, new Map([[propertyUuid, propertyCode]]), new Map([[unitUuid, unitId]]));
   },
 
-  async createDocument(_user: AuthUser, propertyCode: string, doc: Document): Promise<Document> {
+  async createDocument(user: AuthUser, propertyCode: string, doc: Document): Promise<Document> {
     const propertyUuid = await resolvePropertyUuid(propertyCode);
     const { data, error } = await supabase
       .from('documents')
       .insert({
+        tenant_id: user.tenantId,
         property_id: propertyUuid,
         name: doc.name,
         document_date: doc.date,
@@ -515,8 +538,8 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapDocument(data, new Map([[propertyUuid, propertyCode]]), new Map([[propertyUuid, doc.property]]));
   },
 
-  async deleteDocument(_user: AuthUser, documentId: string): Promise<void> {
-    const { error } = await supabase.from('documents').delete().eq('id', documentId);
+  async deleteDocument(user: AuthUser, documentId: string): Promise<void> {
+    const { error } = await scopeToTenant(supabase.from('documents').delete(), user).eq('id', documentId);
     if (error) throw error;
   },
 
@@ -543,6 +566,7 @@ export const supabaseDataRepository: TenantDataRepository = {
       const { data: statRow } = await supabase
         .from('statements')
         .upsert({
+          tenant_id: user.tenantId,
           property_id: propertyUuid,
           unit_id: unitUuid,
           period,
@@ -598,18 +622,22 @@ export const supabaseDataRepository: TenantDataRepository = {
     return mapProfile(data);
   },
 
-  async updateUser(_actor: AuthUser, user: AuthUser): Promise<AuthUser> {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .update({
-        full_name: user.fullName,
-        role: user.role,
-        phone: user.phone,
-        job_title: user.jobTitle,
-        status: user.status,
-        notification_email: user.notificationEmail,
-        notification_sms: user.notificationSms,
-      })
+  async updateUser(actor: AuthUser, user: AuthUser): Promise<AuthUser> {
+    // Scope to the actor's tenant so a user can't be moved/edited across tenants.
+    const { data, error } = await scopeToTenant(
+      supabase
+        .from('user_profiles')
+        .update({
+          full_name: user.fullName,
+          role: user.role,
+          phone: user.phone,
+          job_title: user.jobTitle,
+          status: user.status,
+          notification_email: user.notificationEmail,
+          notification_sms: user.notificationSms,
+        }),
+      actor
+    )
       .eq('id', user.id)
       .select()
       .single();

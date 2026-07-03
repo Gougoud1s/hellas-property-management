@@ -260,6 +260,10 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
                   </button>
                 </form>
 
+                {/* Demo credential hints are shown ONLY in local-demo mode.
+                    In Supabase (production) mode a real login override is passed,
+                    so plaintext demo passwords are never surfaced. */}
+                {!loginOverride && (
                 <div className="mt-6 rounded-xl border border-outline-variant bg-surface-container-low p-4">
                   <div className="mb-3 text-xs font-black uppercase text-primary">Demo λογαριασμοί</div>
                   <div className="space-y-2">
@@ -283,6 +287,7 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
                     ))}
                   </div>
                 </div>
+                )}
               </>
             )}
 

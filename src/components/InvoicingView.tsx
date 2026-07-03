@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { BadgeCheck, Ban, Braces, Landmark, Loader2, Send } from 'lucide-react';
 import { Expense, Property, Unit } from '../types';
 import { MyDataTransmission } from '../featureTypes';
+import { apiFetch } from '../lib/apiClient';
 
 interface Props {
   property: Property | null;
@@ -32,7 +33,7 @@ export default function InvoicingView({ property, properties, expenses, units }:
     setBusyId(row.id);
     try {
       const selected = properties.find((item) => item.id === row.propertyId)!;
-      const response = await fetch('/api/mydata/transmit', {
+      const response = await apiFetch('/api/mydata/transmit', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ property: selected, period: row.period, expenses: expenses.filter((e) => e.propertyId === row.propertyId), units: units.filter((u) => u.propertyId === row.propertyId) })
       });
@@ -46,7 +47,7 @@ export default function InvoicingView({ property, properties, expenses, units }:
 
   const cancel = async (row: MyDataTransmission) => {
     if (!row.mark) return;
-    await fetch(`/api/mydata/cancel/${row.mark}`, { method: 'POST' });
+    await apiFetch(`/api/mydata/cancel/${row.mark}`, { method: 'POST' });
     persist(records.map((item) => item.id === row.id ? { ...item, status: 'cancelled' } : item));
   };
 

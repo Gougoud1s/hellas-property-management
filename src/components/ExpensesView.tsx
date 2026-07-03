@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Search, Plus, Trash2, CheckCircle2, AlertCircle, FileText, UploadCloud, PieChart, Tag, DollarSign, Calendar, User, Sparkles, Loader2 } from 'lucide-react';
 import { Property, Expense } from '../types';
+import { apiFetch } from '../lib/apiClient';
 
 interface ExpensesViewProps {
   selectedProperty: Property | null;
@@ -71,7 +72,7 @@ export default function ExpensesView({
     setIsScanning(true); setAiFilled(false);
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
-      const response = await fetch('/api/expenses/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: dataUrl.split(',')[1], mediaType: file.type, fileName: file.name }) });
+      const response = await apiFetch('/api/expenses/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: dataUrl.split(',')[1], mediaType: file.type, fileName: file.name }) });
       const payload = await response.json(); if (!response.ok) throw new Error(payload.error || 'Scan failed');
       setSupplier(payload.supplier || ''); setAmount(payload.amount ? String(payload.amount) : ''); setDate(payload.date || date); setCategory(payload.category || 'Γενικά / Άλλα'); setAiFilled(true);
     } catch (error) { alert(error instanceof Error ? error.message : 'Η σάρωση απέτυχε.'); } finally { setIsScanning(false); }
