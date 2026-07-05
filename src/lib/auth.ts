@@ -212,8 +212,6 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
   company_admin: [
     'admin:view',
     'admin:manage',
-    'tenants:view',
-    'tenants:manage',
     'properties:view',
     'properties:manage',
     'units:view',
@@ -239,8 +237,6 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
   ],
   company_staff: [
     'admin:view',
-    'tenants:view',
-    'tenants:manage',
     'properties:view',
     'units:view',
     'units:manage',
