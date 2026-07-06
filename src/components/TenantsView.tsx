@@ -16,7 +16,6 @@ import {
   Plus,
   Save,
   Search,
-  TrendingUp,
   Trash2,
   UserRound,
   Users,
@@ -29,7 +28,6 @@ import {
   PmcOnboardingStage,
   SUBSCRIPTION_PLANS,
   SubscriptionPlan,
-  SubscriptionStatus,
   Tenant,
   TenantContact,
   TenantSubscription,
@@ -49,33 +47,22 @@ interface TenantsViewProps {
 
 const PLAN_ORDER: SubscriptionPlan[] = ['starter', 'professional', 'enterprise'];
 
-const SUBSCRIPTION_STATUS_META: Record<SubscriptionStatus, { label: string; className: string }> = {
-  active: { label: 'Ενεργή', className: 'bg-teal-50 text-teal-700' },
-  trial: { label: 'Δοκιμή', className: 'bg-sky-50 text-sky-700' },
-  past_due: { label: 'Ληξιπρόθεσμη', className: 'bg-amber-50 text-amber-700' },
-  canceled: { label: 'Ακυρωμένη', className: 'bg-surface-container-high text-on-surface-variant' }
-};
-
 const PLAN_BADGE_CLASS: Record<SubscriptionPlan, string> = {
   starter: 'bg-surface-container-high text-on-surface-variant',
   professional: 'bg-primary/10 text-primary',
   enterprise: 'bg-secondary/10 text-secondary'
 };
 
-/** Compact subscription pill (plan + status) used in the tenant list and editor. */
+/** Compact subscription pill (plan only) used in the tenant list and editor. */
 function SubscriptionBadges({ sub }: { sub?: TenantSubscription }) {
   if (!sub) {
     return <span className="text-xs text-outline">— Χωρίς συνδρομή</span>;
   }
   const plan = SUBSCRIPTION_PLANS[sub.plan];
-  const status = SUBSCRIPTION_STATUS_META[sub.status];
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${PLAN_BADGE_CLASS[sub.plan]}`}>
         {plan.label}
-      </span>
-      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${status.className}`}>
-        {status.label}
       </span>
     </div>
   );
@@ -333,7 +320,7 @@ function TenantEditor({ original, subscription, flash, onBack, onCommit, onReque
           <div className="mt-2 flex items-center gap-3">
             <TenantLogo tenant={draft} size={44} />
             <h2 className="truncate text-2xl font-black text-primary">
-              {draft.companyName.trim() || (original ? 'Tenant' : 'Νέος Tenant')}
+              {draft.companyName.trim() || (original ? 'Συνδρομητής' : 'Νέος Συνδρομητής')}
             </h2>
           </div>
         </div>
@@ -372,7 +359,7 @@ function TenantEditor({ original, subscription, flash, onBack, onCommit, onReque
                   <button
                     onClick={() => {
                       setMenuOpen(false);
-                      onRequestDelete(draft.id, draft.companyName || 'tenant');
+                      onRequestDelete(draft.id, draft.companyName || 'συνδρομητής');
                     }}
                     className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-error hover:bg-error/5"
                   >
@@ -589,7 +576,7 @@ function TenantEditor({ original, subscription, flash, onBack, onCommit, onReque
               </div>
             ) : (
               <p className="rounded-lg border border-dashed border-outline-variant px-4 py-6 text-center text-xs text-outline">
-                Δεν υπάρχει ενεργή συνδρομή για αυτόν τον tenant.
+                Δεν υπάρχει ενεργή συνδρομή για αυτόν τον συνδρομητή.
               </p>
             )}
           </section>
@@ -597,7 +584,7 @@ function TenantEditor({ original, subscription, flash, onBack, onCommit, onReque
           <section className="rounded-xl border border-outline-variant bg-surface-container-low p-5">
             <h3 className="mb-4 text-sm font-black uppercase text-primary">Μόνο για ανάγνωση</h3>
             <dl className="space-y-3 text-sm">
-              <ReadOnlyRow label="Tenant ID" value={draft.id} mono />
+              <ReadOnlyRow label="ID Συνδρομητή" value={draft.id} mono />
               <ReadOnlyRow label="Τύπος" value={TYPE_LABEL[draft.tenantType]} />
               <ReadOnlyRow label="ΑΦΜ (canonical)" value={draft.vatNumber ? formatVat(draft.vatNumber) : '—'} mono />
               <ReadOnlyRow label="Προέλευση εγγραφής" value={subscriptionOrigin} />
@@ -606,9 +593,6 @@ function TenantEditor({ original, subscription, flash, onBack, onCommit, onReque
               <ReadOnlyRow label="MOC σε πολυκατοικίες" value={String(availableMocs)} />
               <ReadOnlyRow label="IsDeleted" value={draft.isDeleted ? 'Ναι' : 'Όχι'} />
             </dl>
-            <p className="mt-4 text-[11px] leading-relaxed text-outline">
-              Τα πεδία αυτά διαχειρίζονται από το σύστημα και τη ροή εγγραφής και δεν επεξεργάζονται χειροκίνητα.
-            </p>
           </section>
         </div>
       </div>
@@ -721,19 +705,6 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
     return map;
   }, [subscriptions]);
 
-  // Aggregate stats across the active tenant base.
-  const stats = useMemo(() => {
-    const companies = visible.filter((t) => t.tenantType === 'company').length;
-    const individuals = visible.length - companies;
-    const active = visible.filter((t) => t.isActive).length;
-    const mrr = visible.reduce((sum, t) => {
-      const sub = subscriptionByTenant.get(t.id);
-      if (!sub || sub.status === 'canceled') return sum;
-      return sum + SUBSCRIPTION_PLANS[sub.plan].pricePerMonth;
-    }, 0);
-    return { total: visible.length, companies, individuals, active, mrr };
-  }, [visible, subscriptionByTenant]);
-
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return visible;
@@ -796,7 +767,7 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
   const bulkSetActive = (isActive: boolean) => {
     const targets = visible.filter((t) => selected.has(t.id));
     targets.forEach((t) => onUpdateTenant({ ...t, isActive }));
-    setFlash(`${targets.length} ${targets.length === 1 ? 'tenant' : 'tenants'} ${isActive ? 'ενεργοποιήθηκαν' : 'απενεργοποιήθηκαν'}.`);
+    setFlash(`${targets.length} ${targets.length === 1 ? 'συνδρομητής' : 'συνδρομητές'} ${isActive ? 'ενεργοποιήθηκαν' : 'απενεργοποιήθηκαν'}.`);
   };
 
   const runPending = () => {
@@ -808,11 +779,11 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
         next.delete(pending.id);
         return next;
       });
-      setFlash('Ο tenant διαγράφηκε.');
+      setFlash('Ο συνδρομητής διαγράφηκε.');
       if (pending.fromEditor) setView({ mode: 'list' });
     } else {
       pending.ids.forEach((id) => onDeleteTenant(id));
-      setFlash(`${pending.ids.length} ${pending.ids.length === 1 ? 'tenant' : 'tenants'} διαγράφηκαν.`);
+      setFlash(`${pending.ids.length} ${pending.ids.length === 1 ? 'συνδρομητής' : 'συνδρομητές'} διαγράφηκαν.`);
       setSelected(new Set());
     }
     setPending(null);
@@ -820,10 +791,10 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
 
   const confirmDialog = pending && (
     <ConfirmDialog
-      title={pending.kind === 'delete-many' ? 'Διαγραφή tenants' : 'Διαγραφή tenant'}
+      title={pending.kind === 'delete-many' ? 'Διαγραφή συνδρομητών' : 'Διαγραφή συνδρομητή'}
       message={
         pending.kind === 'delete-many'
-          ? `Θα διαγραφούν ${pending.ids.length} tenants (soft delete, IsDeleted=true). Μπορείτε να τα επαναφέρετε από τη βάση.`
+          ? `Θα διαγραφούν ${pending.ids.length} συνδρομητές (soft delete, IsDeleted=true). Μπορείτε να τα επαναφέρετε από τη βάση.`
           : `Θα διαγραφεί ο «${pending.name}» (soft delete, IsDeleted=true).`
       }
       confirmLabel="Διαγραφή"
@@ -865,11 +836,8 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
         <div>
           <h2 className="flex items-center gap-2 text-xl font-bold text-primary">
             <Users className="h-5 w-5" />
-            Tenants
+            Συνδρομητές
           </h2>
-          <p className="mt-1 text-sm text-outline">
-            Πελάτες της πλατφόρμας — εταιρείες και ιδιώτες με τις επαφές και τα στοιχεία επικοινωνίας τους.
-          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative w-full md:w-72">
@@ -882,7 +850,7 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
                 setSelected(new Set());
               }}
               placeholder="Αναζήτηση (επωνυμία, ΑΦΜ, επαφή, τηλέφωνο…)"
-              aria-label="Αναζήτηση tenant"
+              aria-label="Αναζήτηση συνδρομητή"
               className="w-full rounded-lg border border-outline bg-surface-container-lowest py-2 pl-9 pr-4 text-sm outline-none focus:border-primary"
             />
           </div>
@@ -892,46 +860,10 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
               className="flex flex-none items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-[#0d5c63]"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Νέος Tenant</span>
+              <span className="hidden sm:inline">Νέος Συνδρομητής</span>
               <span className="sm:hidden">Νέος</span>
             </button>
           )}
-        </div>
-      </div>
-
-      {/* STATS — the platform manager's at-a-glance tenant base */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase text-outline">
-            <Users className="h-4 w-4 text-primary" />
-            Σύνολο tenants
-          </div>
-          <div className="mt-2 text-2xl font-black text-primary">{stats.total}</div>
-          <div className="text-[11px] text-outline">{stats.active} ενεργοί</div>
-        </div>
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase text-outline">
-            <Building2 className="h-4 w-4 text-primary" />
-            Εταιρείες
-          </div>
-          <div className="mt-2 text-2xl font-black text-on-surface">{stats.companies}</div>
-          <div className="text-[11px] text-outline">εταιρείες διαχείρισης</div>
-        </div>
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase text-outline">
-            <UserRound className="h-4 w-4 text-secondary" />
-            Ιδιώτες
-          </div>
-          <div className="mt-2 text-2xl font-black text-on-surface">{stats.individuals}</div>
-          <div className="text-[11px] text-outline">ιδιώτες διαχειριστές</div>
-        </div>
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase text-outline">
-            <TrendingUp className="h-4 w-4 text-teal-600" />
-            MRR
-          </div>
-          <div className="mt-2 text-2xl font-black text-on-surface">{stats.mrr.toLocaleString('el-GR')}€</div>
-          <div className="text-[11px] text-outline">μηνιαία έσοδα συνδρομών</div>
         </div>
       </div>
 
@@ -1061,10 +993,25 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
                   <td className="px-6 py-4">
                     <SubscriptionBadges sub={subscriptionByTenant.get(tenant.id)} />
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="block max-w-xl select-all whitespace-normal break-words font-mono text-xs text-on-surface-variant">
-                      {allMocValues(tenant).join(' | ') || '—'}
-                    </span>
+                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                    {(() => {
+                      const values = allMocValues(tenant);
+                      if (values.length === 0) {
+                        return <span className="text-xs text-outline">—</span>;
+                      }
+                      return (
+                        <div className="flex max-w-xl flex-col gap-0.5">
+                          {values.map((value, i) => (
+                            <span
+                              key={i}
+                              className="block w-fit max-w-full cursor-text select-all break-words font-mono text-xs text-on-surface-variant"
+                            >
+                              {value}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     {tenant.contacts.length > 1 && (
                       <span className="mt-1 block text-[10px] text-outline">{tenant.contacts.length} επαφές</span>
                     )}
@@ -1103,7 +1050,7 @@ export default function TenantsView({ tenants, subscriptions, onAddTenant, onUpd
                   <td colSpan={canManageTenants ? 7 : 5} className="px-6 py-16 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center text-outline">
                       <Users className="h-10 w-10 text-outline-variant" />
-                      <p className="mt-3 text-sm font-semibold text-on-surface-variant">Δεν βρέθηκαν tenants</p>
+                      <p className="mt-3 text-sm font-semibold text-on-surface-variant">Δεν βρέθηκαν συνδρομητές</p>
                       <p className="mt-1 text-xs">Δοκιμάστε διαφορετικό όρο αναζήτησης.</p>
                     </div>
                   </td>

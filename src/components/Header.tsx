@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Globe, ChevronDown, Clock, LogOut, LayoutGrid, Building2 } from 'lucide-react';
+import { Bell, Globe, ChevronDown, Clock, LogOut, LayoutGrid, Building2, User } from 'lucide-react';
 import { Property } from '../types';
 import { AuthUser, getRoleLabel } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
@@ -87,9 +87,9 @@ export default function Header({
       {/* LEFT — working context (property selector) */}
       <div className="flex min-w-0 items-center">
         {isPlatformManager ? (
-          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-            <span className="material-symbols-outlined text-xl">groups</span>
-            <span className="truncate">Διαχείριση Tenants</span>
+          <div className="flex min-w-0 flex-col justify-center leading-tight">
+            <span className="truncate text-sm font-bold text-primary">{currentUser.fullName}</span>
+            <span className="truncate text-[11px] font-medium text-outline">{getRoleLabel(currentUser.role)}</span>
           </div>
         ) : (
         <div className="relative flex items-center">
@@ -145,12 +145,14 @@ export default function Header({
 
       {/* RIGHT — platform menu, tenant menu, user profile */}
       <div className="flex items-center gap-3">
-        {/* Language switch */}
+        {/* Language switch — hidden for the platform manager */}
+        {!isPlatformManager && (
         <div className="language-toggle" aria-label={t('header.language')}>
           <Globe className="h-3.5 w-3.5" />
           <button className={language === 'el' ? 'active' : ''} onClick={() => setLanguage('el')}>GR</button>
           <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>EN</button>
         </div>
+        )}
 
         {/* Notifications — property-level activity, not shown to the platform manager */}
         {!isPlatformManager && (
@@ -186,9 +188,10 @@ export default function Header({
         )}
 
         {/* Divider */}
-        <span className="hidden h-6 w-px bg-outline-variant sm:block"></span>
+        {!isPlatformManager && <span className="hidden h-6 w-px bg-outline-variant sm:block"></span>}
 
-        {/* Platform menu */}
+        {/* Platform menu — hidden for the platform manager */}
+        {!isPlatformManager && (
         <div className="relative hidden sm:block">
           <button
             id="platform-menu-btn"
@@ -230,7 +233,70 @@ export default function Header({
             </div>
           )}
         </div>
+        )}
 
+        {isPlatformManager ? (
+          /* Combined identity + company control (merged tenant selector + profile) */
+          <div className="relative">
+            <button
+              id="platform-identity-btn"
+              onClick={() => toggleMenu('tenant')}
+              aria-haspopup="true"
+              aria-expanded={openMenu === 'tenant'}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-container"
+            >
+              <img
+                className="h-8 w-8 rounded-full border border-primary object-cover"
+                src={currentUser.avatarUrl}
+                alt={currentUser.fullName}
+                referrerPolicy="no-referrer"
+              />
+              <span className="hidden max-w-[160px] truncate text-sm font-semibold text-on-surface sm:block">
+                {currentUser.companyName}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-outline transition-transform ${openMenu === 'tenant' ? 'rotate-180' : ''}`} />
+            </button>
+
+            {openMenu === 'tenant' && (
+              <div id="platform-identity-menu" className="absolute right-0 top-12 z-50 w-72 rounded-lg border border-outline-variant bg-surface-container-lowest p-2 shadow-lg">
+                <div className="flex items-center gap-3 rounded-md bg-secondary/5 px-3 py-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-sm font-black text-white">
+                    {tenantInitials}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-on-surface">{currentUser.companyName}</span>
+                    <span className="flex items-center gap-1 text-[10px] font-mono text-outline">
+                      <Building2 className="h-3 w-3" />
+                      {currentUser.tenantId}
+                    </span>
+                  </span>
+                </div>
+                <div className="my-1 border-t border-outline-variant/50"></div>
+                <button
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onOpenProfile();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-on-surface hover:bg-surface-container-low"
+                >
+                  <User className="h-4 w-4 text-outline" />
+                  {t('header.profile')}
+                </button>
+                <button
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onLogout();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-on-surface hover:bg-surface-container-low"
+                >
+                  <LogOut className="h-4 w-4 text-outline" />
+                  {t('header.logout')}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+        <>
         {/* Tenant menu */}
         <div className="relative hidden sm:block">
           <button
@@ -301,6 +367,8 @@ export default function Header({
             />
           </button>
         </div>
+        </>
+        )}
       </div>
     </header>
   );

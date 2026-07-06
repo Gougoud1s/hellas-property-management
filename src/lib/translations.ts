@@ -1,7 +1,7 @@
 export const translations = {
   'nav.dashboard': { el: 'Επισκόπηση', en: 'Dashboard' },
   'nav.admin': { el: 'Διαχείριση ομάδας', en: 'Team administration' },
-  'nav.tenants': { el: 'Πελάτες / Tenants', en: 'Tenants' },
+  'nav.tenants': { el: 'Συνδρομητές', en: 'Subscribers' },
   'nav.users': { el: 'Χρήστες', en: 'Users' },
   'nav.subscriptions': { el: 'Συνδρομές', en: 'Subscriptions' },
   'nav.pmsettings': { el: 'Ρυθμίσεις Εταιρείας', en: 'PM Settings' },
