@@ -82,6 +82,8 @@ import ProfileSettingsView from './components/ProfileSettingsView';
 import InvoicingView from './components/InvoicingView';
 import AssemblyView from './components/AssemblyView';
 import OwnerDashboardView from './components/OwnerDashboardView';
+import ParliamentPresentation from './components/ParliamentPresentation';
+import { useTranslation } from './lib/i18n';
 
 const INITIAL_TENANT_REQUESTS: TenantRegistrationRequest[] = [
   {
@@ -97,6 +99,8 @@ const INITIAL_TENANT_REQUESTS: TenantRegistrationRequest[] = [
 ];
 
 export default function App() {
+  const { language } = useTranslation();
+  const [showParliamentPresentation, setShowParliamentPresentation] = useState(false);
   const dataMode = getConfiguredDataMode();
   const [isLoading, setIsLoading] = useState(() => dataMode === 'supabase');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
@@ -913,6 +917,15 @@ export default function App() {
     return session.user;
   };
 
+  if (showParliamentPresentation) {
+    return (
+      <ParliamentPresentation
+        onBackToApp={() => setShowParliamentPresentation(false)}
+        language={language}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#004349]">
@@ -930,6 +943,7 @@ export default function App() {
         onAuthenticated={setCurrentUser}
         loginOverride={dataMode === 'supabase' ? handleSupabaseLogin : undefined}
         onSubmitTenantRequest={handlePublicTenantRequest}
+        onEnterParliamentPresentation={() => setShowParliamentPresentation(true)}
       />
     );
   }
@@ -955,6 +969,7 @@ export default function App() {
           brandName="Atlas PM"
           onLogout={handleLogout}
           onOpenProfile={() => setActiveTab('profile')}
+          onEnterParliamentPresentation={() => setShowParliamentPresentation(true)}
         />
 
         {storageWarning && (

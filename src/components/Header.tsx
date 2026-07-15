@@ -12,6 +12,7 @@ interface HeaderProps {
   brandName: string;
   onLogout: () => void;
   onOpenProfile: () => void;
+  onEnterParliamentPresentation?: () => void;
 }
 
 type OpenMenu = 'notifications' | 'property' | 'platform' | 'tenant' | null;
@@ -23,7 +24,8 @@ export default function Header({
   currentUser,
   brandName,
   onLogout,
-  onOpenProfile
+  onOpenProfile,
+  onEnterParliamentPresentation
 }: HeaderProps) {
   const { language, setLanguage, t } = useTranslation();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
@@ -145,6 +147,18 @@ export default function Header({
 
       {/* RIGHT — platform menu, tenant menu, user profile */}
       <div className="flex items-center gap-3">
+        {/* Parliament Mode Toggle */}
+        {onEnterParliamentPresentation && (
+          <button
+            onClick={onEnterParliamentPresentation}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-800 bg-[#004349]/10 text-teal-800 hover:bg-[#004349]/20 text-xs font-bold transition-all cursor-pointer mr-1"
+            title="Παρουσίαση στη Βουλή των Ελλήνων"
+          >
+            <span className="material-symbols-outlined text-sm">landmark</span>
+            <span className="hidden sm:inline">Παρουσίαση Βουλής</span>
+          </button>
+        )}
+
         {/* Language switch — hidden for the platform manager */}
         {!isPlatformManager && (
         <div className="language-toggle" aria-label={t('header.language')}>

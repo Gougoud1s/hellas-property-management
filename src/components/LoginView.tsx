@@ -24,6 +24,7 @@ interface LoginViewProps {
   onAuthenticated: (user: AuthUser) => void;
   loginOverride?: (email: string, password: string) => Promise<AuthUser>;
   onSubmitTenantRequest?: (request: TenantRegistrationRequest) => void;
+  onEnterParliamentPresentation?: () => void;
 }
 
 type Mode = 'signin' | 'subscribe';
@@ -41,7 +42,7 @@ const PMC_STEPS = [
   { key: 'admin_provisioned', label: 'Δημιουργία PMC Admin' }
 ] as const;
 
-export default function LoginView({ onAuthenticated, loginOverride, onSubmitTenantRequest }: LoginViewProps) {
+export default function LoginView({ onAuthenticated, loginOverride, onSubmitTenantRequest, onEnterParliamentPresentation }: LoginViewProps) {
   const [mode, setMode] = useState<Mode>('signin');
 
   // Sign-in state
@@ -212,8 +213,19 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
                   </div>
                   <h2 className="text-2xl font-black text-primary">Σύνδεση</h2>
                   <p className="mt-2 text-sm leading-6 text-outline">
-                    Χρησιμοποιήστε έναν demo λογαριασμό για να ανοίξετε το εταιρικό περιβάλλον.
+                    Χρησιμοποιήστε έναν demo λογαριασμό ή μπείτε στη λειτουργία παρουσίασης.
                   </p>
+                  
+                  {onEnterParliamentPresentation && (
+                    <button
+                      type="button"
+                      onClick={onEnterParliamentPresentation}
+                      className="mt-4 w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-600 hover:to-emerald-600 px-4 py-3 text-sm font-extrabold text-white shadow-md transition-all duration-200"
+                    >
+                      <span className="material-symbols-outlined text-lg">landmark</span>
+                      <span>Παρουσίαση στη Βουλή των Ελλήνων</span>
+                    </button>
+                  )}
                 </div>
 
                 <form className="space-y-4" onSubmit={handleSubmit}>

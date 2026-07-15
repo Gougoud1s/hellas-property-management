@@ -25,7 +25,9 @@ export const translations = {
   'header.profile': { el: 'Το Προφίλ μου', en: 'My profile' },
   'header.logout': { el: 'Αποσύνδεση', en: 'Log out' },
   'header.account': { el: 'Λογαριασμός', en: 'Account' },
-  'common.demo': { el: 'Λειτουργία επίδειξης', en: 'Demo mode' }
+  'common.demo': { el: 'Λειτουργία επίδειξης', en: 'Demo mode' },
+  'nav.parliament': { el: 'Παρουσίαση στη Βουλή', en: 'Parliament Presentation' },
+  'login.parliament_badge': { el: 'Παρουσίαση στη Βουλή των Ελλήνων', en: 'Greek Parliament Presentation' }
 } as const;
 
 export type TranslationKey = keyof typeof translations;
