@@ -1,32 +1,39 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, Ban, Braces, Landmark, Loader2, Send } from 'lucide-react';
 import { Expense, Property, Unit } from '../types';
 import { MyDataTransmission } from '../featureTypes';
 import { apiFetch } from '../lib/apiClient';
+import { AuthUser } from '../lib/auth';
+import { getConfiguredDataMode } from '../lib/backendContracts';
+import { loadMyDataTransmissions, saveMyDataTransmission } from '../lib/supabase/featureRepository';
 
 interface Props {
   property: Property | null;
   properties: Property[];
   expenses: Expense[];
   units: Unit[];
+  currentUser: AuthUser;
 }
 
-export default function InvoicingView({ property, properties, expenses, units }: Props) {
+export default function InvoicingView({ property, properties, expenses, units, currentUser }: Props) {
   const storageKey = 'hpm_mydata_transmissions';
   const [records, setRecords] = useState<MyDataTransmission[]>(() => {
     try { return JSON.parse(localStorage.getItem(storageKey) || '[]'); } catch { return []; }
   });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const cloud = getConfiguredDataMode() === 'supabase';
+  useEffect(() => { if (cloud) loadMyDataTransmissions().then(setRecords).catch(console.error); }, [cloud]);
 
   const rows = useMemo(() => properties.map((item) => {
     const existing = records.find((record) => record.propertyId === item.id && record.period === item.period);
     return existing || { id: `mydata-${item.id}-${item.period}`, propertyId: item.id, period: item.period, status: 'draft' as const };
   }), [properties, records]);
 
-  const persist = (next: MyDataTransmission[]) => {
+  const persist = async (next: MyDataTransmission[], changed?: MyDataTransmission) => {
+    if (cloud && changed) await saveMyDataTransmission(currentUser, changed);
     setRecords(next);
-    localStorage.setItem(storageKey, JSON.stringify(next));
+    if (!cloud) localStorage.setItem(storageKey, JSON.stringify(next));
   };
 
   const transmit = async (row: MyDataTransmission) => {
@@ -39,16 +46,16 @@ export default function InvoicingView({ property, properties, expenses, units }:
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Transmission failed');
-      persist([...records.filter((item) => item.id !== row.id), { ...row, status: 'transmitted', mark: String(payload.mark), transmittedAt: new Date().toISOString() }]);
+      const changed = { ...row, status: 'transmitted' as const, mark: String(payload.mark), transmittedAt: new Date().toISOString() }; await persist([...records.filter((item) => item.id !== row.id), changed], changed);
     } catch (error) {
-      persist([...records.filter((item) => item.id !== row.id), { ...row, status: 'error', errorMessage: error instanceof Error ? error.message : 'Transmission failed' }]);
+      const changed = { ...row, status: 'error' as const, errorMessage: error instanceof Error ? error.message : 'Transmission failed' }; await persist([...records.filter((item) => item.id !== row.id), changed], changed);
     } finally { setBusyId(null); }
   };
 
   const cancel = async (row: MyDataTransmission) => {
     if (!row.mark) return;
     await apiFetch(`/api/mydata/cancel/${row.mark}`, { method: 'POST' });
-    persist(records.map((item) => item.id === row.id ? { ...item, status: 'cancelled' } : item));
+    const changed = { ...row, status: 'cancelled' as const }; await persist(records.map((item) => item.id === row.id ? changed : item), changed);
   };
 
   return <div className="space-y-6">

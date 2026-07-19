@@ -1,0 +1,77 @@
+{
+  "tenant": {
+    "id": "tenant-anastassiadis",
+    "companyName": "Anastassiadis Group",
+    "vatNumber": "",
+    "profession": "Διαχείριση Ακινήτων & Κτιρίων",
+    "address": "Λεωφ. Ελευθερίου Βενιζέλου 114, Ηλιούπολη",
+    "zipCode": "16345",
+    "tenantType": "company",
+    "isActive": true,
+    "isDeleted": false,
+    "onboardingStage": "admin_provisioned",
+    "logoUrl": "https://anastassiadis.com/wp-content/uploads/2023/11/ag_gold_new-1.png",
+    "websiteUrl": "https://anastassiadis.com/en/",
+    "contacts": [{
+      "id": "ct-anastassiadis-main",
+      "fullName": "Anastassiadis Group",
+      "mocs": [
+        { "id": "moc-anastassiadis-phone", "type": "landline", "value": "+30 210 963 3920", "availableToProperties": true },
+        { "id": "moc-anastassiadis-email", "type": "email", "value": "info@anastassiadis.com", "availableToProperties": true }
+      ]
+    }]
+  },
+  "subscription": { "id": "sub-anastassiadis", "tenantId": "tenant-anastassiadis", "tenantName": "Anastassiadis Group", "plan": "enterprise", "status": "active", "seats": 18, "renewalDate": "01/07/2027" },
+  "properties": [
+    { "id": "ANA-IL-01", "tenantId": "tenant-anastassiadis", "name": "Ilioupoli Gardens", "address": "Λεωφ. Ειρήνης 38, Ηλιούπολη", "unitsCount": 6, "period": "Ιούλιος 2026", "status": "Published", "dues": 684.7, "issuesCount": 1, "imageUrl": "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80", "occupancy": 100, "reserveFund": 3600, "cashAvailable": 4285.4 },
+    { "id": "ANA-GL-02", "tenantId": "tenant-anastassiadis", "name": "Glyfada Blue Residences", "address": "Λαζαράκη 22, Γλυφάδα", "unitsCount": 4, "period": "Ιούλιος 2026", "status": "Published", "dues": 315.2, "issuesCount": 1, "imageUrl": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80", "occupancy": 100, "reserveFund": 5000, "cashAvailable": 6180.25 },
+    { "id": "ANA-AT-03", "tenantId": "tenant-anastassiadis", "name": "Athens Central Lofts", "address": "Μιχαλακοπούλου 91, Αθήνα", "unitsCount": 4, "period": "Ιούλιος 2026", "status": "Draft", "dues": 428.4, "issuesCount": 0, "imageUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80", "occupancy": 75, "reserveFund": 2400, "cashAvailable": 2195.8 }
+  ],
+  "units": [
+    { "id": "A1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "floor": "1ος", "type": "Διαμέρισμα", "size": 82, "share": 165, "coefficient": 1, "ownerName": "Νικόλαος Αντωνίου", "ownerPhone": "6900001001", "ownerEmail": "demo.owner1@example.gr", "residentName": "Νικόλαος Αντωνίου", "residentType": "Ιδιοκατοίκηση", "occupants": 3, "status": "Ενεργό", "balance": 143.96, "prevBalance": 38.5, "deposit": 250 },
+    { "id": "A2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "floor": "1ος", "type": "Διαμέρισμα", "size": 78, "share": 155, "coefficient": 1, "ownerName": "Μαρία Θεοδώρου", "ownerPhone": "6900001002", "ownerEmail": "demo.owner2@example.gr", "residentName": "Αλέξανδρος Ρήγας", "residentType": "Ενοικιαστής", "occupants": 2, "status": "Ενεργό", "balance": 85.22, "prevBalance": 0, "deposit": 240 },
+    { "id": "B1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "floor": "2ος", "type": "Διαμέρισμα", "size": 86, "share": 170, "coefficient": 1.05, "ownerName": "Ελένη Παύλου", "ownerPhone": "6900001003", "ownerEmail": "demo.owner3@example.gr", "residentName": "Ελένη Παύλου", "residentType": "Ιδιοκατοίκηση", "occupants": 4, "status": "Ενεργό", "balance": 216.13, "prevBalance": 92.1, "deposit": 260 },
+    { "id": "B2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "floor": "2ος", "type": "Διαμέρισμα", "size": 80, "share": 160, "coefficient": 1.05, "ownerName": "Σπυρίδων Μάρκου", "residentName": "Ιωάννα Κοσμά", "residentType": "Ενοικιαστής", "occupants": 1, "status": "Ενεργό", "balance": 69.94, "prevBalance": 0, "deposit": 250 },
+    { "id": "C1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "floor": "3ος", "type": "Διαμέρισμα", "size": 92, "share": 180, "coefficient": 1.1, "ownerName": "Δημήτριος Λάμπρου", "residentName": "Δημήτριος Λάμπρου", "residentType": "Ιδιοκατοίκηση", "occupants": 1, "status": "Ενεργό", "balance": 186.57, "prevBalance": 110, "deposit": 280 },
+    { "id": "C2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "floor": "3ος", "type": "Διαμέρισμα", "size": 88, "share": 170, "coefficient": 1.1, "ownerName": "Αναστασία Νικολάου", "residentName": "Αναστασία Νικολάου", "residentType": "Ιδιοκατοίκηση", "occupants": 2, "status": "Ενεργό", "balance": 0, "prevBalance": 0, "deposit": 270 },
+    { "id": "G1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "floor": "1ος", "type": "Διαμέρισμα", "size": 105, "share": 250, "coefficient": 1, "ownerName": "Πέτρος Κωνσταντίνου", "residentName": "Πέτρος Κωνσταντίνου", "residentType": "Ιδιοκατοίκηση", "occupants": 2, "status": "Ενεργό", "balance": 99.64, "prevBalance": 0, "deposit": 350 },
+    { "id": "G2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "floor": "2ος", "type": "Διαμέρισμα", "size": 112, "share": 260, "coefficient": 1.1, "ownerName": "Αγγελική Στεργίου", "residentName": "David Miller", "residentType": "Ενοικιαστής", "occupants": 3, "status": "Ενεργό", "balance": 294.26, "prevBalance": 72.5, "deposit": 400 },
+    { "id": "L1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-AT-03", "floor": "4ος", "type": "Loft", "size": 64, "share": 240, "coefficient": 1, "ownerName": "Koner Investments", "residentName": "Sophia Wang", "residentType": "Ενοικιαστής", "occupants": 2, "status": "Ενεργό", "balance": 86, "prevBalance": 86, "deposit": 500 },
+    { "id": "L2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-AT-03", "floor": "5ος", "type": "Loft", "size": 68, "share": 260, "coefficient": 1.05, "ownerName": "Koner Investments", "residentName": "", "residentType": "Κενό", "occupants": 0, "status": "Κενό", "balance": 130, "prevBalance": 130, "deposit": 0 }
+  ],
+  "expenses": [
+    { "id": "ana-exp-1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "date": "2026-07-03", "supplier": "ΔΕΗ", "category": "Ηλεκτρικό", "amount": 186.4, "fileName": "demo-dei-ilioupoli.pdf", "status": "Verified" },
+    { "id": "ana-exp-2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "date": "2026-07-05", "supplier": "Attica Lift Service", "category": "Ασανσέρ", "amount": 145, "fileName": "demo-lift-july.pdf", "status": "Verified" },
+    { "id": "ana-exp-3", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "date": "2026-07-08", "supplier": "Clean Building OE", "category": "Καθαριότητα", "amount": 220, "status": "Verified" },
+    { "id": "ana-exp-4", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "date": "2026-07-10", "supplier": "ΕΥΔΑΠ", "category": "Ύδρευση", "amount": 96.3, "status": "Draft" },
+    { "id": "ana-exp-5", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "date": "2026-07-06", "supplier": "Glyfada Gardens", "category": "Κήπος", "amount": 180, "status": "Verified" },
+    { "id": "ana-exp-6", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "date": "2026-07-09", "supplier": "Pool Care Hellas", "category": "Πισίνα", "amount": 260, "status": "Verified" },
+    { "id": "ana-exp-7", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-AT-03", "date": "2026-07-07", "supplier": "Athens Security", "category": "Ασφάλεια", "amount": 210, "status": "Verified" }
+  ],
+  "rules": [
+    { "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "category": "Ηλεκτρικό", "method": "Χιλιοστά", "sampleAmount": 186.4, "description": "Κατανομή βάσει γενικών χιλιοστών." },
+    { "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "category": "Ασανσέρ", "method": "Χιλιοστά", "sampleAmount": 145, "description": "Κατανομή βάσει χιλιοστών ανελκυστήρα." },
+    { "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "category": "Καθαριότητα", "method": "Βάσει Ατόμων", "sampleAmount": 220, "description": "Κατανομή βάσει του αριθμού ατόμων ανά ενεργό διαμέρισμα." },
+    { "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "category": "Ύδρευση", "method": "Χιλιοστά", "sampleAmount": 96.3, "description": "Κατανομή βάσει γενικών χιλιοστών." },
+    { "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "category": "Κήπος", "method": "Ίσα Μέρη", "sampleAmount": 180, "description": "Ισόποση συμμετοχή των κατοικιών." },
+    { "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "category": "Πισίνα", "method": "Χιλιοστά", "sampleAmount": 260, "description": "Κατανομή βάσει χιλιοστών ιδιοκτησίας." },
+    { "tenantId": "tenant-anastassiadis", "propertyId": "ANA-AT-03", "category": "Ασφάλεια", "method": "Ίσα Μέρη", "sampleAmount": 210, "description": "Ισόποση συμμετοχή των ενεργών loft." }
+  ],
+  "issues": [
+    { "id": "ana-issue-1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "unitId": "B2", "title": "Έλεγχος πίεσης κεντρικής θέρμανσης", "property": "Ilioupoli Gardens", "severity": "Medium", "status": "In Progress", "reportedAt": "18/07/2026", "estimate": 160, "technician": "ThermoControl", "progress": 45 },
+    { "id": "ana-issue-2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "title": "Αντικατάσταση φωτισμού εισόδου", "property": "Glyfada Blue Residences", "severity": "Low", "status": "New", "reportedAt": "19/07/2026", "estimate": 95 }
+  ],
+  "bankTransactions": [
+    { "id": "ana-bank-1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "date": "2026-07-17", "amount": 142.3, "bank": "ALPHA BANK", "ref": "ANA0717A1", "description": "ΚΟΙΝΟΧΡΗΣΤΑ ΙΟΥΛΙΟΥ A1", "suggestedUnit": "A1", "suggestedOwner": "Νικόλαος Αντωνίου" },
+    { "id": "ana-bank-2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "date": "2026-07-18", "amount": 196.6, "bank": "EUROBANK", "ref": "ANA0718G2", "description": "COMMON EXPENSES G2", "suggestedUnit": "G2", "suggestedOwner": "Αγγελική Στεργίου" }
+  ],
+  "paymentLedger": [
+    { "id": "ana-pay-2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "period": "Ιούλιος 2026", "date": "2026-07-16", "payer": "Αναστασία Νικολάου", "unit": "C2", "paymentCode": "ANA-IL-C2-0726", "amount": 90.18, "method": "Κάρτα", "matchType": "ΑΥΤΟΜΑΤΗ", "status": "Ολοκληρώθηκε" },
+    { "id": "ana-pay-3", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "period": "Ιούλιος 2026", "date": "2026-07-14", "payer": "Πέτρος Κωνσταντίνου", "unit": "G1", "paymentCode": "ANA-GL-G1-0726", "amount": 118.6, "method": "Τράπεζα", "matchType": "ΧΕΙΡΟΚΙΝΗΤΗ", "status": "Ολοκληρώθηκε" }
+  ],
+  "documents": [
+    { "id": "ana-doc-1", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "name": "Κανονισμός πολυκατοικίας", "date": "2026-01-10", "type": "Κανονισμός", "property": "Ilioupoli Gardens", "visibility": "Όλοι", "size": "1.8 MB" },
+    { "id": "ana-doc-2", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-IL-01", "name": "Σύμβαση συντήρησης ανελκυστήρα", "date": "2026-06-01", "type": "Σύμβαση", "property": "Ilioupoli Gardens", "visibility": "Ιδιοκτήτες", "size": "840 KB" },
+    { "id": "ana-doc-3", "tenantId": "tenant-anastassiadis", "propertyId": "ANA-GL-02", "name": "Πρακτικά γενικής συνέλευσης", "date": "2026-05-22", "type": "Πρακτικά", "property": "Glyfada Blue Residences", "visibility": "Όλοι", "size": "1.1 MB" }
+  ]
+}

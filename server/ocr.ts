@@ -1,11 +1,14 @@
 import { Router } from 'express';
+import { demoApiAllowed, integrationEnabled } from './config';
+import { requireCompanyUser } from './auth';
 
 const router = Router();
 
-router.post('/scan', async (req, res) => {
+router.post('/scan', requireCompanyUser, async (req, res) => {
   const { image, mediaType = 'image/jpeg', fileName = '' } = req.body as { image?: string; mediaType?: string; fileName?: string };
   if (!image) { res.status(400).json({ error: 'Receipt image is required' }); return; }
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!integrationEnabled('ocr')) {
+    if (!demoApiAllowed()) { res.status(503).json({ error: 'Receipt OCR is not configured' }); return; }
     res.json({ supplier: fileName.toLowerCase().includes('dei') ? 'ΔΕΗ' : 'Προμηθευτής παραστατικού', amount: 128.4, date: new Date().toISOString().slice(0, 10), category: fileName.toLowerCase().includes('dei') ? 'ΔΕΗ / Ρεύμα' : 'Γενικά / Άλλα', confidence: 0.78, demo: true });
     return;
   }

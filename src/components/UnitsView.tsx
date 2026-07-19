@@ -36,8 +36,11 @@ export default function UnitsView({
   const [ownerEmail, setOwnerEmail] = useState('');
   const [resident, setResident] = useState('');
   const [residentType, setResidentType] = useState<'Ιδιοκατοίκηση' | 'Ενοικιαστής' | 'Κενό'>('Ιδιοκατοίκηση');
+  const [occupants, setOccupants] = useState(1);
+  const [participationStart, setParticipationStart] = useState('');
+  const [participationEnd, setParticipationEnd] = useState('');
+  const [participationPolicy, setParticipationPolicy] = useState<'full' | 'prorated'>('full');
   const [status, setStatus] = useState<'Ενεργό' | 'Κενό'>('Ενεργό');
-  const [balance, setBalance] = useState(0);
   const [deposit, setDeposit] = useState(200);
 
   if (!selectedProperty) {
@@ -71,8 +74,11 @@ export default function UnitsView({
     setOwnerEmail(unit.ownerEmail || '');
     setResident(unit.residentName);
     setResidentType(unit.residentType);
+    setOccupants(unit.occupants ?? (unit.residentType === 'Κενό' ? 0 : 1));
+    setParticipationStart(unit.participationStart ?? '');
+    setParticipationEnd(unit.participationEnd ?? '');
+    setParticipationPolicy(unit.participationPolicy ?? 'full');
     setStatus(unit.status);
-    setBalance(unit.balance);
     setDeposit(unit.deposit);
     setShowAddForm(true);
   };
@@ -80,6 +86,7 @@ export default function UnitsView({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!unitId || !owner) return;
+    if (participationStart && participationEnd && participationEnd < participationStart) return;
 
     const unitData: Unit = {
       id: unitId,
@@ -93,8 +100,12 @@ export default function UnitsView({
       ownerEmail,
       residentName: residentType === 'Κενό' ? '' : resident,
       residentType,
+      occupants: residentType === 'Κενό' ? 0 : Math.max(1, Math.floor(Number(occupants) || 1)),
+      participationStart: participationStart || undefined,
+      participationEnd: participationEnd || undefined,
+      participationPolicy,
       status: residentType === 'Κενό' ? 'Κενό' : status,
-      balance: Number(balance),
+      balance: editingUnit?.balance ?? 0,
       prevBalance: editingUnit ? editingUnit.prevBalance : 0,
       deposit: Number(deposit)
     };
@@ -112,6 +123,12 @@ export default function UnitsView({
     setOwnerPhone('');
     setOwnerEmail('');
     setResident('');
+    setResidentType('Ιδιοκατοίκηση');
+    setOccupants(1);
+    setStatus('Ενεργό');
+    setParticipationStart('');
+    setParticipationEnd('');
+    setParticipationPolicy('full');
     setSize(80);
     setShare(100);
     setShowAddForm(false);
@@ -206,6 +223,12 @@ export default function UnitsView({
               setUnitId('');
               setOwner('');
               setResident('');
+              setResidentType('Ιδιοκατοίκηση');
+              setOccupants(1);
+              setStatus('Ενεργό');
+              setParticipationStart('');
+              setParticipationEnd('');
+              setParticipationPolicy('full');
               setSize(80);
               setShare(100);
               setShowAddForm(true);
@@ -481,7 +504,8 @@ export default function UnitsView({
                     </div>
 
                     {residentType !== 'Κενό' && (
-                      <div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]">
+                        <div>
                         <label className="block text-xs font-medium text-outline mb-1">ΟΝΟΜΑ ΕΝΟΙΚΟΥ</label>
                         <input
                           type="text"
@@ -490,23 +514,64 @@ export default function UnitsView({
                           onChange={(e) => setResident(e.target.value)}
                           className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
                         />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-outline mb-1">ΑΡΙΘΜΟΣ ΑΤΟΜΩΝ</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={occupants}
+                            onChange={(e) => setOccupants(Math.max(1, Number(e.target.value)))}
+                            className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm font-mono outline-none focus:border-primary"
+                          />
+                        </div>
                       </div>
                     )}
+
+                    <div className="rounded-lg border border-outline-variant/50 bg-surface-container-low p-3">
+                      <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-primary">Συμμετοχή στα κοινόχρηστα</div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-outline">ΕΝΑΡΞΗ</label>
+                          <input
+                            type="date"
+                            value={participationStart}
+                            onChange={(e) => setParticipationStart(e.target.value)}
+                            className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-outline">ΛΗΞΗ (ΠΡΟΑΙΡΕΤΙΚΗ)</label>
+                          <input
+                            type="date"
+                            min={participationStart || undefined}
+                            value={participationEnd}
+                            onChange={(e) => setParticipationEnd(e.target.value)}
+                            className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-outline">ΤΡΟΠΟΣ ΧΡΕΩΣΗΣ</label>
+                          <select
+                            value={participationPolicy}
+                            onChange={(e) => setParticipationPolicy(e.target.value as 'full' | 'prorated')}
+                            className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
+                          >
+                            <option value="full">Πλήρης περίοδος</option>
+                            <option value="prorated">Αναλογικά ανά ημέρα</option>
+                          </select>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-[10px] text-outline">Σε ήδη εκδοθείσα περίοδο η αλλαγή εφαρμόζεται μόνο μέσω διορθωτικής έκδοσης.</p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="border-t border-[#97462f]/20 pt-4 mt-4 bg-[#97462f]/5 p-4 rounded-lg">
-                  <h3 className="text-xs font-bold text-[#97462f] uppercase mb-3">Οικονομικά Υπόλοιπα</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-outline mb-1">ΤΡΕΧΟΝ ΥΠΟΛΟΙΠΟ (€)</label>
-                      <input
-                        type="number"
-                        value={balance}
-                        onChange={(e) => setBalance(Number(e.target.value))}
-                        className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-[#97462f] font-mono"
-                      />
-                    </div>
+                  <h3 className="text-xs font-bold text-[#97462f] uppercase mb-3">Οικονομικά στοιχεία</h3>
+                  <p className="mb-3 text-xs text-outline">Το τρέχον υπόλοιπο υπολογίζεται αυτόματα από εκδόσεις, διορθώσεις και ολοκληρωμένες πληρωμές και δεν τροποποιείται από τη μονάδα.</p>
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-outline mb-1">ΑΠΟΘΕΜΑΤΙΚΟ (€)</label>
                       <input

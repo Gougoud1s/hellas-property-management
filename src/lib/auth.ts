@@ -1,4 +1,5 @@
 import type { IndividualSignupMethod } from '../types';
+import { isSingleTenant, productConfig, userAllowedInDeployment } from './productConfig';
 
 export type UserRole = 'platform_admin' | 'company_admin' | 'company_staff' | 'owner' | 'resident';
 export type AppPermission =
@@ -21,6 +22,8 @@ export type AppPermission =
   | 'invoicing:manage'
   | 'assemblies:view'
   | 'assemblies:manage'
+  | 'calendar:view'
+  | 'calendar:manage'
   | 'issues:view'
   | 'issues:manage'
   | 'bank:view'
@@ -44,6 +47,7 @@ export type AppTab =
   | 'statements'
   | 'invoicing'
   | 'assemblies'
+  | 'calendar'
   | 'issues'
   | 'bank'
   | 'docs'
@@ -125,6 +129,71 @@ const DEMO_USERS: Array<AuthUser & { password: string }> = [
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=128&q=80'
   },
   {
+    id: 'usr-anastassiadis-admin',
+    tenantId: 'tenant-anastassiadis',
+    fullName: 'Demo Διαχειριστής Αναστασιάδης',
+    email: 'demo@anastassiadis.com',
+    password: 'demo123',
+    role: 'company_admin',
+    companyName: 'Anastassiadis Group',
+    phone: '+30 210 963 3920',
+    jobTitle: 'Building Management Demo',
+    status: 'active',
+    notificationEmail: true,
+    notificationSms: false,
+    avatarUrl: 'https://ui-avatars.com/api/?background=1f2937&color=d4af37&bold=true&name=Anastassiadis+Group'
+  },
+  {
+    id: 'usr-anastassiadis-staff',
+    tenantId: 'tenant-anastassiadis',
+    fullName: 'Ελένη Μάρκου',
+    email: 'staff@anastassiadis.demo',
+    password: 'staff123',
+    role: 'company_staff',
+    companyName: 'Anastassiadis Group',
+    phone: '6900002001',
+    jobTitle: 'Property Operations',
+    status: 'active',
+    notificationEmail: true,
+    notificationSms: true,
+    propertyIds: ['ANA-IL-01', 'ANA-GL-02'],
+    avatarUrl: 'https://ui-avatars.com/api/?background=004349&color=fff&bold=true&name=Eleni+Markou'
+  },
+  {
+    id: 'usr-anastassiadis-owner',
+    tenantId: 'tenant-anastassiadis',
+    fullName: 'Νικόλαος Αντωνίου',
+    email: 'demo.owner1@example.gr',
+    password: 'owner123',
+    role: 'owner',
+    companyName: 'Anastassiadis Group',
+    phone: '6900001001',
+    jobTitle: 'Ιδιοκτήτης A1',
+    status: 'active',
+    notificationEmail: true,
+    notificationSms: false,
+    propertyIds: ['ANA-IL-01'],
+    unitIds: ['A1'],
+    avatarUrl: 'https://ui-avatars.com/api/?background=97462f&color=fff&bold=true&name=Nikolaos+Antoniou'
+  },
+  {
+    id: 'usr-anastassiadis-resident',
+    tenantId: 'tenant-anastassiadis',
+    fullName: 'Αλέξανδρος Ρήγας',
+    email: 'resident@anastassiadis.demo',
+    password: 'resident123',
+    role: 'resident',
+    companyName: 'Anastassiadis Group',
+    phone: '6900002002',
+    jobTitle: 'Ένοικος A2',
+    status: 'active',
+    notificationEmail: true,
+    notificationSms: true,
+    propertyIds: ['ANA-IL-01'],
+    unitIds: ['A2'],
+    avatarUrl: 'https://ui-avatars.com/api/?background=0d5c63&color=fff&bold=true&name=Alexandros+Rigas'
+  },
+  {
     id: 'usr-owner-1',
     tenantId: 'tenant-hellas-pm',
     fullName: 'Ιωάννης Παπαδόπουλος',
@@ -200,6 +269,8 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'invoicing:manage',
     'assemblies:view',
     'assemblies:manage',
+    'calendar:view',
+    'calendar:manage',
     'issues:view',
     'issues:manage',
     'bank:view',
@@ -210,6 +281,7 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'profile:manage'
   ],
   company_admin: [
+    'dashboard:view',
     'admin:view',
     'admin:manage',
     'tenants:view',
@@ -228,6 +300,8 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'invoicing:manage',
     'assemblies:view',
     'assemblies:manage',
+    'calendar:view',
+    'calendar:manage',
     'issues:view',
     'issues:manage',
     'bank:view',
@@ -238,6 +312,7 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'profile:manage'
   ],
   company_staff: [
+    'dashboard:view',
     'admin:view',
     'tenants:view',
     'tenants:manage',
@@ -252,6 +327,8 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'invoicing:manage',
     'assemblies:view',
     'assemblies:manage',
+    'calendar:view',
+    'calendar:manage',
     'issues:view',
     'issues:manage',
     'bank:view',
@@ -261,8 +338,8 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
     'profile:view',
     'profile:manage'
   ],
-  owner: ['dashboard:view', 'statements:view', 'assemblies:view', 'issues:view', 'docs:view', 'bank:view', 'profile:view', 'profile:manage'],
-  resident: ['dashboard:view', 'statements:view', 'assemblies:view', 'issues:view', 'docs:view', 'profile:view', 'profile:manage']
+  owner: ['dashboard:view', 'statements:view', 'assemblies:view', 'calendar:view', 'issues:view', 'docs:view', 'bank:view', 'profile:view', 'profile:manage'],
+  resident: ['dashboard:view', 'statements:view', 'assemblies:view', 'calendar:view', 'issues:view', 'docs:view', 'profile:view', 'profile:manage']
 };
 
 const TAB_PERMISSION: Record<AppTab, AppPermission> = {
@@ -279,6 +356,7 @@ const TAB_PERMISSION: Record<AppTab, AppPermission> = {
   statements: 'statements:view',
   invoicing: 'invoicing:view',
   assemblies: 'assemblies:view',
+  calendar: 'calendar:view',
   issues: 'issues:view',
   bank: 'bank:view',
   docs: 'docs:view',
@@ -302,19 +380,23 @@ export function hasPermission(user: AuthUser, permission: AppPermission): boolea
  * manager, so they are intentionally kept out of this role's navigation.
  * Profile stays available for the manager's own account.
  */
-const PLATFORM_ADMIN_TABS: AppTab[] = ['tenants', 'profile'];
+const PLATFORM_ADMIN_TABS: AppTab[] = ['tenants', 'users', 'subscriptions', 'profile'];
+const PLATFORM_ONLY_TABS = new Set<AppTab>(['tenants', 'users', 'subscriptions']);
 
 export function canAccessTab(user: AuthUser, tab: AppTab): boolean {
   if (user.role === 'platform_admin' && !PLATFORM_ADMIN_TABS.includes(tab)) {
+    return false;
+  }
+  if (user.role !== 'platform_admin' && PLATFORM_ONLY_TABS.has(tab)) {
     return false;
   }
   return hasPermission(user, TAB_PERMISSION[tab]);
 }
 
 export function getDefaultTabForRole(role: UserRole): AppTab {
-  if (role === 'owner' || role === 'resident') return 'dashboard';
+  if (role !== 'platform_admin') return 'dashboard';
   if (role === 'platform_admin') return 'tenants';
-  return 'properties';
+  return 'dashboard';
 }
 
 function normalizeAuthUser(user: AuthUser): AuthUser {
@@ -366,19 +448,24 @@ export function loginWithCredentials(email: string, password: string): LoginResu
     };
   }
 
+  if (!userAllowedInDeployment(user)) {
+    return { ok: false, error: `Ο λογαριασμός δεν ανήκει στο περιβάλλον ${productConfig.tenantName}.` };
+  }
+
   const { password: _password, ...authUser } = user;
   saveAuthUser(authUser);
   return { ok: true, user: authUser };
 }
 
-export const DEMO_LOGIN_HINTS = DEMO_USERS.map((user) => ({
+export const DEMO_LOGIN_HINTS = DEMO_USERS.filter(userAllowedInDeployment).map((user) => ({
   email: user.email,
   password: user.password,
   role: getRoleLabel(user.role)
 }));
 
 export function getDemoTenantUsers(): AuthUser[] {
-  return DEMO_USERS.map(({ password: _password, ...user }) => user);
+  return DEMO_USERS.filter((user) => !isSingleTenant() || userAllowedInDeployment(user))
+    .map(({ password: _password, ...user }) => user);
 }
 
 export function canManageUserRole(actor: AuthUser, targetRole: UserRole): boolean {

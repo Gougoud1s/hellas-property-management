@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Globe, ChevronDown, Clock, LogOut, LayoutGrid, Building2, User } from 'lucide-react';
+import { Bell, Globe, ChevronDown, Clock, LogOut, LayoutGrid, Building2, User, CircleHelp } from 'lucide-react';
 import { Property } from '../types';
 import { AuthUser, getRoleLabel } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
@@ -12,7 +12,7 @@ interface HeaderProps {
   brandName: string;
   onLogout: () => void;
   onOpenProfile: () => void;
-  onEnterParliamentPresentation?: () => void;
+  onStartTour: () => void;
 }
 
 type OpenMenu = 'notifications' | 'property' | 'platform' | 'tenant' | null;
@@ -25,7 +25,7 @@ export default function Header({
   brandName,
   onLogout,
   onOpenProfile,
-  onEnterParliamentPresentation
+  onStartTour
 }: HeaderProps) {
   const { language, setLanguage, t } = useTranslation();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
@@ -78,11 +78,7 @@ export default function Header({
     .join('')
     .toUpperCase();
 
-  const mockNotifications = [
-    { id: 1, text: 'Νέα κατάθεση 124,50€ για το Α1 (Athenian Court)', time: 'Πριν 5λ', read: false },
-    { id: 2, text: 'Βλάβη "Απόφραξη στήλης" μεταφέρθηκε σε εξέλιξη', time: 'Πριν 1ω', read: true },
-    { id: 3, text: 'Νέα δαπάνη CleanX (240€) καταχωρήθηκε προς έγκριση', time: 'Πριν 2ω', read: true }
-  ];
+  const notifications: Array<{ id: number; text: string; time: string; read: boolean }> = [];
 
   return (
     <header ref={headerRef} id="app-header" className="sticky top-0 z-40 flex h-16 w-full items-center justify-between gap-4 border-b border-outline-variant bg-surface px-6">
@@ -137,28 +133,17 @@ export default function Header({
       </div>
 
       {/* MIDDLE — live system clock */}
-      <div className="hidden flex-1 items-center justify-center lg:flex">
-        <div className="flex items-center gap-3 rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-1.5 font-mono text-xs text-on-surface-variant">
+      <div className="hidden min-w-0 flex-1 items-center justify-center lg:flex">
+        <div className="flex flex-none items-center gap-3 whitespace-nowrap rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-1.5 font-mono text-xs text-on-surface-variant">
           <Clock className="h-3.5 w-3.5 text-primary" />
-          <span>{formatDate(currentTime)}</span>
+          <span className="hidden 2xl:inline">{formatDate(currentTime)}</span>
           <span className="font-semibold text-primary">{formatTime(currentTime)}</span>
         </div>
       </div>
 
       {/* RIGHT — platform menu, tenant menu, user profile */}
       <div className="flex items-center gap-3">
-        {/* Parliament Mode Toggle */}
-        {onEnterParliamentPresentation && (
-          <button
-            onClick={onEnterParliamentPresentation}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-800 bg-[#004349]/10 text-teal-800 hover:bg-[#004349]/20 text-xs font-bold transition-all cursor-pointer mr-1"
-            title="Παρουσίαση στη Βουλή των Ελλήνων"
-          >
-            <span className="material-symbols-outlined text-sm">landmark</span>
-            <span className="hidden sm:inline">Παρουσίαση Βουλής</span>
-          </button>
-        )}
-
+        {!isPlatformManager && <button onClick={onStartTour} className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container" title="Ξενάγηση στη ροή εργασίας" aria-label="Έναρξη ξενάγησης"><CircleHelp className="h-5 w-5" /></button>}
         {/* Language switch — hidden for the platform manager */}
         {!isPlatformManager && (
         <div className="language-toggle" aria-label={t('header.language')}>
@@ -180,14 +165,15 @@ export default function Header({
             className="relative rounded-full p-2 hover:bg-surface-container"
           >
             <Bell className="h-5 w-5 text-on-surface-variant" />
-            <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5 rounded-full bg-secondary"></span>
+            {notifications.some((notification) => !notification.read) && <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5 rounded-full bg-secondary"></span>}
           </button>
 
           {openMenu === 'notifications' && (
             <div id="notifications-box" className="absolute right-0 top-12 z-50 w-80 rounded-lg border border-outline-variant bg-surface-container-lowest p-2 shadow-lg">
               <div className="border-b border-outline-variant/50 px-3 py-2 text-sm font-semibold">Ειδοποιήσεις</div>
               <div className="divide-y divide-outline-variant/30">
-                {mockNotifications.map((n) => (
+                {notifications.length === 0 && <div className="p-4 text-center text-xs text-outline">Δεν υπάρχουν νέες ειδοποιήσεις.</div>}
+                {notifications.map((n) => (
                   <div key={n.id} className="p-3 text-xs hover:bg-surface-container-low">
                     <div className="flex justify-between font-medium">
                       <span className={n.read ? 'text-on-surface-variant' : 'font-semibold text-on-surface'}>{n.text}</span>

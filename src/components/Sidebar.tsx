@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AuthUser, canAccessTab, getRoleLabel } from '../lib/auth';
 import { useTranslation } from '../lib/i18n';
+import { isSingleTenant } from '../lib/productConfig';
 
-export type ActiveTab = 'dashboard' | 'admin' | 'tenants' | 'users' | 'subscriptions' | 'settings' | 'properties' | 'units' | 'expenses' | 'rules' | 'statements' | 'invoicing' | 'assemblies' | 'issues' | 'bank' | 'docs' | 'profile';
+export type ActiveTab = 'dashboard' | 'admin' | 'tenants' | 'users' | 'subscriptions' | 'settings' | 'properties' | 'units' | 'expenses' | 'rules' | 'statements' | 'invoicing' | 'assemblies' | 'calendar' | 'issues' | 'bank' | 'docs' | 'profile';
 
 interface SidebarProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   brandName: string;
+  logoUrl?: string;
   currentUser: AuthUser;
 }
 
@@ -18,8 +20,9 @@ interface MenuItem {
   badge?: string | number;
 }
 
-export default function Sidebar({ activeTab, setActiveTab, brandName, currentUser }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, brandName, logoUrl, currentUser }: SidebarProps) {
   const { t } = useTranslation();
+  const [showTools, setShowTools] = useState(false);
 
   // Primary navigation — the product surfaces. Settings/profile lives pinned at
   // the bottom, so it is intentionally excluded from this list.
@@ -37,12 +40,20 @@ export default function Sidebar({ activeTab, setActiveTab, brandName, currentUse
     { id: 'statements', label: t('nav.statements'), icon: 'table_chart' },
     { id: 'invoicing', label: t('nav.invoicing'), icon: 'receipt' },
     { id: 'assemblies', label: t('nav.assemblies'), icon: 'how_to_vote' },
+    { id: 'calendar', label: t('nav.calendar'), icon: 'calendar_month' },
     { id: 'issues', label: t('nav.issues'), icon: 'handyman', badge: 2 },
     { id: 'bank', label: t('nav.bank'), icon: 'account_balance_wallet' },
     { id: 'docs', label: t('nav.docs'), icon: 'folder_open' }
   ];
-  const visibleMenuItems = menuItems.filter((item) => canAccessTab(currentUser, item.id));
-  const homeTab = visibleMenuItems[0]?.id ?? 'profile';
+  const platformOnly = new Set<ActiveTab>(['tenants', 'subscriptions']);
+  const visibleMenuItems = menuItems.filter((item) =>
+    canAccessTab(currentUser, item.id) && !(isSingleTenant() && platformOnly.has(item.id))
+  );
+  const isCompany = currentUser.role === 'company_admin' || currentUser.role === 'company_staff';
+  const primaryIds = new Set<ActiveTab>(['dashboard', 'properties', 'statements', 'issues', 'bank']);
+  const primaryItems = isCompany ? visibleMenuItems.filter((item) => primaryIds.has(item.id)) : visibleMenuItems;
+  const secondaryItems = isCompany ? visibleMenuItems.filter((item) => !primaryIds.has(item.id) && item.id !== 'settings') : [];
+  const homeTab = primaryItems[0]?.id ?? 'profile';
   const settingsActive = activeTab === 'profile';
 
   return (
@@ -55,9 +66,15 @@ export default function Sidebar({ activeTab, setActiveTab, brandName, currentUse
           aria-label={t('nav.home')}
           className="flex h-full w-full items-center gap-2 rounded-lg px-2 text-left transition-colors hover:bg-white/5"
         >
-          <span className="material-symbols-outlined text-inverse-primary text-2xl">apartment</span>
+          {logoUrl ? (
+            <span className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-md bg-white p-1">
+              <img src={logoUrl} alt="" className="h-full w-full object-contain" />
+            </span>
+          ) : (
+            <span className="material-symbols-outlined text-inverse-primary text-2xl">apartment</span>
+          )}
           <span className="flex flex-col">
-            <span className="font-sans text-base font-extrabold uppercase tracking-wide text-white">
+            <span className="max-w-[150px] truncate font-sans text-sm font-extrabold uppercase tracking-wide text-white">
               {brandName}
             </span>
             <span className="font-mono text-[10px] font-medium tracking-widest text-[#90d2da]">
@@ -69,7 +86,7 @@ export default function Sidebar({ activeTab, setActiveTab, brandName, currentUse
 
       {/* Middle — Navigation menu */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-6" aria-label={t('nav.dashboard')}>
-        {visibleMenuItems.map((item) => {
+        {primaryItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
@@ -105,6 +122,18 @@ export default function Sidebar({ activeTab, setActiveTab, brandName, currentUse
             </button>
           );
         })}
+        {secondaryItems.length > 0 && <div className="pt-4">
+          <button onClick={() => setShowTools((value) => !value)} aria-expanded={showTools} className="flex min-h-11 w-full items-center justify-between rounded-lg px-4 text-left text-xs font-bold uppercase tracking-wider text-white/60 hover:bg-white/5 hover:text-white">
+            <span className="flex items-center gap-3"><span className="material-symbols-outlined text-lg">apps</span>Περισσότερα εργαλεία</span>
+            <span className="material-symbols-outlined text-lg">{showTools ? 'expand_less' : 'expand_more'}</span>
+          </button>
+          {showTools && <div className="mt-1 space-y-1 border-l border-white/10 pl-2">{secondaryItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return <button key={item.id} onClick={() => setActiveTab(item.id)} aria-current={isActive ? 'page' : undefined} className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-4 text-left text-sm ${isActive ? 'bg-[#0d5c63] font-semibold text-[#90d2da]' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}>
+              <span className="material-symbols-outlined text-lg">{item.icon}</span><span>{item.label}</span>
+            </button>;
+          })}</div>}
+        </div>}
       </nav>
 
       {/* Bottom — Settings + signature */}

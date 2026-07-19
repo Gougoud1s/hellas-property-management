@@ -22,7 +22,7 @@ export type PlatformPermission =
  * Roles summarise what a user can do.
  *  - platform_administrator — Platform Admins; can manage all data.
  *  - properties_administrator — any Individual Property Manager (IPM) or PMC
- *    Admin; by default a Properties Administrator.
+ *    Admin; manages only its own organisation and property operations.
  *  - pmc_user — users created by PMC Admins; handle the company's properties
  *    but cannot read or manage the platform subscription.
  *  - portal_user — owners/residents; no platform-administration access.
@@ -43,9 +43,8 @@ const ALL_PERMISSIONS: PlatformPermission[] = [
 export const PLATFORM_ROLE_PERMISSIONS: Record<PlatformRole, PlatformPermission[]> = {
   // Manages all the data.
   platform_administrator: ALL_PERMISSIONS,
-  // Reads (not manages) the subscription; fully manages settings, properties and users.
+  // Manages its own settings, properties and users; platform billing is private.
   properties_administrator: [
-    'ReadPlatformSubscription',
     'ReadPMSettings',
     'ManagePMSettings',
     'ReadPropertiesData',

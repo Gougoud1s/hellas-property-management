@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Building2, CheckCircle2, MailPlus, Search, Shield, UserPlus, Users } from 'lucide-react';
 import { AuthUser, canManageUserRole, getRoleLabel, UserRole } from '../lib/auth';
-import { TenantRegistrationRequest } from '../types';
+import { Property, TenantRegistrationRequest } from '../types';
 
 interface AdminConsoleViewProps {
   currentUser: AuthUser;
@@ -10,6 +10,7 @@ interface AdminConsoleViewProps {
   onInviteUser: (user: AuthUser) => void;
   onUpdateUser: (user: AuthUser) => void;
   onApproveTenantRequest: (requestId: string) => void;
+  properties: Property[];
 }
 
 const roleOptions: UserRole[] = ['company_admin', 'company_staff', 'owner', 'resident'];
@@ -20,12 +21,14 @@ export default function AdminConsoleView({
   tenantRequests,
   onInviteUser,
   onUpdateUser,
-  onApproveTenantRequest
+  onApproveTenantRequest,
+  properties
 }: AdminConsoleViewProps) {
   const [query, setQuery] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>('owner');
+  const [invitePropertyIds, setInvitePropertyIds] = useState<string[]>([]);
 
   const filteredUsers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -52,13 +55,14 @@ export default function AdminConsoleView({
       status: 'invited',
       notificationEmail: true,
       notificationSms: false,
-      propertyIds: inviteRole === 'owner' || inviteRole === 'resident' ? [] : undefined,
+      propertyIds: inviteRole === 'company_staff' || inviteRole === 'owner' || inviteRole === 'resident' ? invitePropertyIds : undefined,
       unitIds: inviteRole === 'owner' || inviteRole === 'resident' ? [] : undefined
     });
 
     setInviteEmail('');
     setInviteName('');
     setInviteRole('owner');
+    setInvitePropertyIds([]);
   };
 
   return (
@@ -112,7 +116,7 @@ export default function AdminConsoleView({
                   <th className="px-6 py-4">ΧΡΗΣΤΗΣ</th>
                   <th className="px-6 py-4">ΡΟΛΟΣ</th>
                   <th className="px-6 py-4">STATUS</th>
-                  <th className="px-6 py-4">ΜΟΝΑΔΕΣ</th>
+                  <th className="px-6 py-4">ΣΥΝΔΕΔΕΜΕΝΑ ΚΤΙΡΙΑ</th>
                   <th className="px-6 py-4 text-right">ΕΝΕΡΓΕΙΑ</th>
                 </tr>
               </thead>
@@ -155,8 +159,15 @@ export default function AdminConsoleView({
                           {user.status === 'invited' ? 'Πρόσκληση' : user.status === 'disabled' ? 'Disabled' : 'Active'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs text-outline">
-                        {user.unitIds?.length ? user.unitIds.join(', ') : '—'}
+                      <td className="px-6 py-4 text-xs text-outline">
+                        {user.role === 'company_staff' ? (
+                          <details className="relative">
+                            <summary className="cursor-pointer font-semibold text-primary">{user.propertyIds?.length ? `${user.propertyIds.length} κτίρια` : 'Όλα τα κτίρια'}</summary>
+                            <div className="absolute right-0 z-20 mt-2 w-64 space-y-1 rounded-lg border border-outline-variant bg-white p-3 shadow-xl">
+                              {properties.map((property) => <label key={property.id} className="flex min-h-9 items-center gap-2 text-xs"><input type="checkbox" checked={user.propertyIds?.includes(property.id) ?? false} onChange={() => { const current = user.propertyIds ?? []; const next = current.includes(property.id) ? current.filter((id) => id !== property.id) : [...current, property.id]; onUpdateUser({ ...user, propertyIds: next }); }} /> <span className="truncate">{property.name}</span></label>)}
+                            </div>
+                          </details>
+                        ) : user.propertyIds?.length ? user.propertyIds.map((id) => properties.find((property) => property.id === id)?.name || id).join(', ') : '—'}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
@@ -206,6 +217,20 @@ export default function AdminConsoleView({
                   </option>
                 ))}
               </select>
+              {(inviteRole === 'company_staff' || inviteRole === 'owner' || inviteRole === 'resident') && (
+                <fieldset className="rounded-lg border border-outline-variant p-3">
+                  <legend className="px-1 text-[10px] font-black uppercase text-outline">Συνδεδεμένες πολυκατοικίες</legend>
+                  <div className="mt-1 max-h-36 space-y-1 overflow-y-auto">
+                    {properties.map((property) => (
+                      <label key={property.id} className="flex min-h-9 items-center gap-2 text-xs font-semibold">
+                        <input type="checkbox" checked={invitePropertyIds.includes(property.id)} onChange={() => setInvitePropertyIds((prev) => prev.includes(property.id) ? prev.filter((id) => id !== property.id) : [...prev, property.id])} />
+                        <span className="truncate">{property.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {inviteRole === 'company_staff' && invitePropertyIds.length === 0 && <p className="mt-2 text-[10px] text-outline">Χωρίς επιλογή, ο συνεργάτης έχει πρόσβαση σε όλα τα κτίρια.</p>}
+                </fieldset>
+              )}
               {!canInviteRole && (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
                   Ο ρόλος σας δεν μπορεί να προσκαλέσει αυτόν τον τύπο χρήστη.

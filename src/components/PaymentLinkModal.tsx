@@ -29,9 +29,10 @@ export default function PaymentLinkModal({ unit, property, onClose }: PaymentLin
     try {
       const res = await apiFetch('/api/payments/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
         body: JSON.stringify({
           unitId: unit.id,
+          propertyId: property.id,
           amount: Number(amount),
           ownerName: unit.ownerName,
           ownerEmail: unit.ownerEmail,

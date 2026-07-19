@@ -5,7 +5,8 @@ import { Property, Document } from '../types';
 interface DocumentsViewProps {
   selectedProperty: Property | null;
   documents: Document[];
-  onAddDocument: (newDoc: Document) => void;
+  onAddDocument: (newDoc: Document, file: File) => void;
+  onDownloadDocument: (document: Document) => void;
   onDeleteDocument: (id: string) => void;
   onSelectPropertyPrompt: () => void;
   canManageDocuments: boolean;
@@ -15,6 +16,7 @@ export default function DocumentsView({
   selectedProperty,
   documents,
   onAddDocument,
+  onDownloadDocument,
   onDeleteDocument,
   onSelectPropertyPrompt,
   canManageDocuments
@@ -27,7 +29,7 @@ export default function DocumentsView({
   const [docName, setDocName] = useState('');
   const [docType, setDocType] = useState<'Σύμβαση' | 'Παραστατικό' | 'Πρακτικά' | 'Τεχνικό'>('Σύμβαση');
   const [docVisibility, setDocVisibility] = useState<'Μόνο Εταιρεία' | 'Ιδιοκτήτες' | 'Όλοι'>('Μόνο Εταιρεία');
-  const [fileSize, setFileSize] = useState('1.5 MB');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   if (!selectedProperty) {
     return (
@@ -49,7 +51,7 @@ export default function DocumentsView({
 
   const handleCreateDocument = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!docName) return;
+    if (!docName || !selectedFile) return;
 
     const today = new Date();
     const formattedDate = today.toLocaleDateString('el-GR', {
@@ -65,15 +67,16 @@ export default function DocumentsView({
       type: docType,
       property: selectedProperty.name,
       visibility: docVisibility,
-      size: fileSize
+      size: selectedFile.size >= 1024 * 1024 ? `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(selectedFile.size / 1024)} KB`
     };
 
-    onAddDocument(newDoc);
+    onAddDocument(newDoc, selectedFile);
 
     // Reset Form
     setDocName('');
     setDocType('Σύμβαση');
     setDocVisibility('Μόνο Εταιρεία');
+    setSelectedFile(null);
     setShowAddForm(false);
   };
 
@@ -205,7 +208,7 @@ export default function DocumentsView({
               {/* Action buttons */}
               <div className="flex gap-2 pt-1.5">
                 <button
-                  onClick={() => alert(`Προσομοίωση Λήψης: Λήψη αρχείου ${doc.name} (${doc.size})`)}
+                  onClick={() => onDownloadDocument(doc)}
                   className="flex-1 rounded border border-outline hover:bg-surface-container-low py-1.5 text-xs font-semibold flex items-center justify-center gap-1"
                 >
                   <Download className="h-3.5 w-3.5" />
@@ -267,17 +270,12 @@ export default function DocumentsView({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-outline mb-1.5">ΜΕΓΕΘΟΣ</label>
-                  <select
-                    value={fileSize}
-                    onChange={(e) => setFileSize(e.target.value)}
-                    className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary font-mono"
-                  >
-                    <option value="1.2 MB">1.2 MB</option>
-                    <option value="2.4 MB">2.4 MB</option>
-                    <option value="540 KB">540 KB</option>
-                    <option value="6.8 MB">6.8 MB</option>
-                  </select>
+                  <label className="block text-xs font-semibold text-outline mb-1.5">ΑΡΧΕΙΟ *</label>
+                  <input
+                    type="file" required accept="application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                    className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-xs outline-none focus:border-primary"
+                  />
                 </div>
               </div>
 

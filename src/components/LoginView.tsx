@@ -19,12 +19,14 @@ import {
   registerIndividualPropertyManager
 } from '../lib/auth';
 import { IndividualSignupMethod, TenantRegistrationRequest, TenantType } from '../types';
+import { isSingleTenant, productConfig } from '../lib/productConfig';
+import { getConfiguredDataMode } from '../lib/backendContracts';
 
 interface LoginViewProps {
   onAuthenticated: (user: AuthUser) => void;
   loginOverride?: (email: string, password: string) => Promise<AuthUser>;
+  mfaVerifyOverride?: (code: string) => Promise<AuthUser>;
   onSubmitTenantRequest?: (request: TenantRegistrationRequest) => void;
-  onEnterParliamentPresentation?: () => void;
 }
 
 type Mode = 'signin' | 'subscribe';
@@ -42,14 +44,17 @@ const PMC_STEPS = [
   { key: 'admin_provisioned', label: 'Δημιουργία PMC Admin' }
 ] as const;
 
-export default function LoginView({ onAuthenticated, loginOverride, onSubmitTenantRequest, onEnterParliamentPresentation }: LoginViewProps) {
+export default function LoginView({ onAuthenticated, loginOverride, mfaVerifyOverride, onSubmitTenantRequest }: LoginViewProps) {
   const [mode, setMode] = useState<Mode>('signin');
 
   // Sign-in state
-  const [email, setEmail] = useState('admin@hellaspm.gr');
-  const [password, setPassword] = useState('admin123');
+  const localDemo = getConfiguredDataMode() === 'local-demo';
+  const [email, setEmail] = useState(localDemo ? (isSingleTenant() ? 'demo@anastassiadis.com' : 'admin@hellaspm.gr') : '');
+  const [password, setPassword] = useState(localDemo ? (isSingleTenant() ? 'demo123' : 'admin123') : '');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
 
   // Subscribe state
   const [subKind, setSubKind] = useState<TenantType | null>(null);
@@ -80,10 +85,20 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
         onAuthenticated(result.user);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Δεν ήταν δυνατή η σύνδεση.');
+      if (err instanceof Error && err.name === 'MfaRequiredError') setMfaRequired(true);
+      else setError(err instanceof Error ? err.message : 'Δεν ήταν δυνατή η σύνδεση.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleMfa = async (event: React.FormEvent) => {
+    event.preventDefault(); setIsSubmitting(true); setError('');
+    try {
+      if (!mfaVerifyOverride || !/^\d{6}$/.test(mfaCode)) throw new Error('Εισαγάγετε τον εξαψήφιο κωδικό της εφαρμογής authenticator.');
+      onAuthenticated(await mfaVerifyOverride(mfaCode));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Η επαλήθευση απέτυχε.'); }
+    finally { setIsSubmitting(false); }
   };
 
   const registerIndividual = (method: IndividualSignupMethod, fullName: string, userEmail: string) => {
@@ -142,7 +157,7 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
               <Building2 className="h-6 w-6 text-[#90d2da]" />
             </span>
             <div>
-              <div className="text-lg font-extrabold tracking-wide">Atlas PM</div>
+              <div className="text-lg font-extrabold tracking-wide">{isSingleTenant() ? productConfig.tenantName : 'Atlas PM'}</div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#90d2da]">
                 B2B Portal
               </div>
@@ -181,7 +196,7 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
         <section className="flex items-center justify-center p-6 lg:p-12">
           <div className="w-full max-w-md rounded-2xl border border-outline-variant bg-white p-6 shadow-xl lg:p-8">
             {/* Mode toggle */}
-            <div className="mb-7 grid grid-cols-2 gap-1 rounded-xl border border-outline-variant bg-surface-container-low p-1">
+            {!isSingleTenant() && <div className="mb-7 grid grid-cols-2 gap-1 rounded-xl border border-outline-variant bg-surface-container-low p-1">
               <button
                 type="button"
                 onClick={() => setMode('signin')}
@@ -203,7 +218,7 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
               >
                 Εγγραφή
               </button>
-            </div>
+            </div>}
 
             {mode === 'signin' && (
               <>
@@ -213,22 +228,23 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
                   </div>
                   <h2 className="text-2xl font-black text-primary">Σύνδεση</h2>
                   <p className="mt-2 text-sm leading-6 text-outline">
-                    Χρησιμοποιήστε έναν demo λογαριασμό ή μπείτε στη λειτουργία παρουσίασης.
+                    {localDemo ? 'Χρησιμοποιήστε έναν demo λογαριασμό για να εξερευνήσετε την εφαρμογή.' : 'Συνδεθείτε με τον εταιρικό λογαριασμό σας.'}
                   </p>
-                  
-                  {onEnterParliamentPresentation && (
-                    <button
-                      type="button"
-                      onClick={onEnterParliamentPresentation}
-                      className="mt-4 w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-600 hover:to-emerald-600 px-4 py-3 text-sm font-extrabold text-white shadow-md transition-all duration-200"
-                    >
-                      <span className="material-symbols-outlined text-lg">landmark</span>
-                      <span>Παρουσίαση στη Βουλή των Ελλήνων</span>
-                    </button>
-                  )}
                 </div>
 
-                <form className="space-y-4" onSubmit={handleSubmit}>
+                {mfaRequired && <form className="space-y-4" onSubmit={handleMfa}>
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-bold uppercase text-outline">Κωδικός MFA</span>
+                    <input value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      inputMode="numeric" autoComplete="one-time-code" autoFocus className={inputClass} placeholder="000000" />
+                  </label>
+                  {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800">{error}</div>}
+                  <button type="submit" disabled={isSubmitting || mfaCode.length !== 6} className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-extrabold text-white disabled:opacity-60">
+                    {isSubmitting ? 'Επαλήθευση…' : 'Επιβεβαίωση ασφαλούς σύνδεσης'}
+                  </button>
+                </form>}
+
+                {!mfaRequired && <form className="space-y-4" onSubmit={handleSubmit}>
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-bold uppercase text-outline">Email</span>
                     <span className="relative block">
@@ -270,12 +286,12 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
                   >
                     {isSubmitting ? 'Σύνδεση…' : 'Είσοδος στο Atlas PM'}
                   </button>
-                </form>
+                </form>}
 
                 {/* Demo credential hints are shown ONLY in local-demo mode.
                     In Supabase (production) mode a real login override is passed,
                     so plaintext demo passwords are never surfaced. */}
-                {!loginOverride && (
+                {!mfaRequired && !loginOverride && (
                 <div className="mt-6 rounded-xl border border-outline-variant bg-surface-container-low p-4">
                   <div className="mb-3 text-xs font-black uppercase text-primary">Demo λογαριασμοί</div>
                   <div className="space-y-2">
@@ -303,7 +319,7 @@ export default function LoginView({ onAuthenticated, loginOverride, onSubmitTena
               </>
             )}
 
-            {mode === 'subscribe' && (
+            {!isSingleTenant() && mode === 'subscribe' && (
               <>
                 {/* Step 1 — choose tenant kind */}
                 {!subKind && (

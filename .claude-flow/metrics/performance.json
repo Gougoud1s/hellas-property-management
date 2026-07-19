@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-07-16T18:41:12.314Z",
+  "mode": "headless",
+  "workerType": "optimize",
+  "model": "sonnet",
+  "durationMs": 46453,
+  "executionId": "optimize_1784227225861_dh4wsk",
+  "success": true,
+  "findings": {
+    "sections": [
+      {
+        "title": "1. N+1 Query Patterns",
+        "content": "\n**`src/lib/supabase/authRepository.ts` — `buildAuthUser`**\n\nEvery login/session check does a tenant lookup, then (for owner/resident) a separate `user_unit_access` query. Called on every `getSession()` — i.e., every page load in Supabase mode.\n\n```ts\n// Current: 2 sequential round-trips per auth check\nconst { data: tenant } = await supabase.from('tenants').select('name').eq('id', tenantId).single();\n// ...then a second await for user_unit_access\n```\n\nFix: run independent queries concurrently, and consider a Postgres view/RPC that joins `user_profiles → tenants → user_unit_access → units → properties` in one call:\n\n```ts\nconst [{ data: tenant }, { data: accessRows }] = await Promise.all([\n  supabase.from('tenants').select('name').eq('id', tenantId).single(),\n  (role === 'owner' || role === 'resident')\n    ? supabase.from('user_unit_access').select('units(code, properties(code))').eq('user_id', profile.id as string)\n    : Promise.resolve({ data: null })\n]);\n```\n\n**`src/lib/supabase/dataRepository.ts` — mapper functions (`mapProperty`, `mapIssue`, etc.)**\n\nThese take `unitsData`/`issuesData` arrays and do `.filter()` inside a per-row mapper — that's O(n·m) when called in a `.map()` loop over properties, effectively an in-memory N+1:\n\n```ts\nfunction mapProperty(row: any, unitsData: any[], issuesData: any[]): Property {\n  const unitsCount = unitsData.filter((u) => u.property_id === row.id).length; // O(n) per property\n  const issuesCount = issuesData.filter((i) => i.property_id === row.id && i.status !== 'Resolved').length;\n  ...\n}\n```\n\nFix: pre-group once with `Map`, then O(1) lookups:\n\n```ts\nfunction groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {\n  const map = new Map<string, T[]>();\n  for (const row of rows) {\n    const k = key(row);\n    if (!map.has(k)) map.set(k, []);\n    map.get(k)!.push(row);\n  }\n  return map;\n}\n\n// build once before mapping all properties\nconst unitsByProperty = groupBy(unitsData, (u) => u.property_id);\nconst issuesByProperty = groupBy(issuesData, (i) => i.property_id);\n\nfunction mapProperty(row: any, unitsByProperty: Map<string, any[]>, issuesByProperty: Map<string, any[]>): Property {\n  const propUnits = unitsByProperty.get(row.id) ?? [];\n  const unitsCount = propUnits.length;\n  const issuesCount = (issuesByProperty.get(row.id) ?? []).filter((i) => i.status !== 'Resolved').length;\n  ...\n}\n```\nThis matters more as property/unit counts grow — currently harmless at demo scale but scales quadratically.\n\n",
+        "level": 2
+      },
+      {
+        "title": "2. Unnecessary React Re-renders",
+        "content": "\n**`src/lib/i18n.ts` — `useTranslation` hook**\n\nEvery component calling `useTranslation()` subscribes to a global `window` event and re-renders on any language change — fine in principle, but `t` is a new function on every render (not memoized), so any component passing `t` down as a prop, or using it inside a `useMemo`/`useCallback` dependency array, will invalidate memoization unnecessarily:\n\n```ts\nreturn {\n  language,\n  setLanguage,\n  t: (key: TranslationKey) => translations[key][language] // new identity every render\n};\n```\n\nFix:\n```ts\nconst t = useCallback((key: TranslationKey) => translations[key][language], [language]);\nreturn useMemo(() => ({ language, setLanguage, t }), [language, t]);\n```\n\n**`src/components/AdminConsoleView.tsx` — `filteredUsers`**\n\nThis one is already correctly memoized with `useMemo` — good pattern, no issue. But note `canInviteRole` is recomputed every render (not expensive here, but if `canManageUserRole` grows costlier, wrap it in `useMemo([currentUser, inviteRole])`).\n\n**`src/App.tsx` — large state tree with many `useState` slices**\n\nApp.tsx holds ~10+ independent `useState` slices (`properties`, `units`, `expenses`, `rules`, `issues`, `bankTransactions`, `paymentLedger`, `documents`, ...). Any single setter (e.g., `setIssues`) triggers a re-render of the entire `App` component tree, and since view components are likely receiving multiple of these arrays as props, most views re-render even when their own slice didn't change.\n\nFix options:\n- Split state via `useReducer` for related domains, or\n- Wrap heavy child views in `React.memo` with carefully selected props so unrelated state updates don't cascade:\n```tsx\nconst MemoIssuesView = React.memo(IssuesView);\n```\n- Ensure derived arrays passed as props (e.g., `getVisibleIssues(...)`) are memoized with `useMemo`, not recomputed inline on every render — check call sites in the truncated `App.tsx`; if these scoping functions are called directly in JSX (not wrapped), they run on every render and produce new array references, breaking `React.memo` on children.\n\n```tsx\n// Likely current pattern (bad — new array reference every render, breaks memo children)\n<IssuesView issues={getVisibleIssues(currentUser, issues, selectedProperty, properties)} />\n\n// Fix\nconst visibleIssues = useMemo(\n  () => getVisibleIssues(currentUser, issues, selectedProperty, properties),\n  [currentUser, issues, selectedProperty, properties]\n);\n<IssuesView issues={visibleIssues} />\n```\n\n",
+        "level": 2
+      },
+      {
+        "title": "3. Caching Opportunities",
+        "content": "\n**`src/lib/propertyStatementAdapter.ts` — `buildStatements`, `toCalculationUnits`, `toCalculationExpenses`, `toCalculationRules`**\n\nThese pure transforms are likely called repeatedly (e.g., on every render of `StatementsView`, and again inside `calculateBalanceAfterPayment`) with the same `units`/`expenses`/`rules` inputs. Since they're pure functions of their inputs, they're perfect `useMemo` candidates at the call site:\n\n```tsx\n// In StatementsView or wherever buildStatements is called\nconst statements = useMemo(\n  () => buildStatements({ period, units, expenses, rules }),\n  [period, units, expenses, rules]\n);\n```\n\n**`src/lib/paymentLedger.ts` — `calculateBalanceAfterPayment`**\n\nCalls `buildStatements` (which itself does `generateStatements` over all units/expenses/rules) just to compute one unit's balance. If this runs per-row in a list (e.g., previewing balances for many units), it's redundant full recomputation each time:\n\n```ts\nexport function calculateBalanceAfterPayment({ unitId, paymentAmount, period, units, expenses, rules }) {\n  const statements = buildStatements({ period, units, expenses, rules }); // recomputes ALL units' statements\n  ...\n}\n```\n\nFix: if called for multiple units, hoist `buildStatements` out and compute all balances from one shared statements result instead of recalculating per unit.\n\n**`src/lib/supabase/authRepository.ts` — tenant name lookup**\n\n`tenants.name` rarely changes; caching per `tenantId` in-memory (a simple `Map`) would eliminate a network round trip on every auth check:\n\n```ts\nconst tenantNameCache = new Map<string, string>();\n\nasync function getTenantName(tenantId: string): Promise<string> {\n  if (tenantNameCache.has(tenantId)) return tenantNameCache.get(tenantId)!;\n  const { data } = await supabase.from('tenants').select('name').eq('id', tenantId).single();\n  const name = data?.name ?? '';\n  tenantNameCache.set(tenantId, name);\n  return name;\n}\n```\n\n",
+        "level": 2
+      },
+      {
+        "title": "4. Memory Leaks",
+        "content": "\n**`src/lib/i18n.ts`** — event listener cleanup looks correct (`removeEventListener` in the `useEffect` cleanup), no leak here. Good pattern to keep.\n\n**`src/App.tsx` — `supabaseInitialized` ref pattern**\n\nCan't see the full effect body (file truncated), but this pattern commonly hides a leak: if there's an async `onAuthStateChange` subscription or interval tied to Supabase session watching, verify the cleanup function unsubscribes:\n\n```ts\nuseEffect(() => {\n  if (supabaseInitialized.current) return;\n  supabaseInitialized.current = true;\n  const { data: sub } = supabase.auth.onAuthStateChange((event, session) => { ... });\n  return () => sub.subscription.unsubscribe(); // ensure this exists\n}, []);\n```\nIf this cleanup is missing, remounting `App` (e.g., in tests or HMR) accumulates duplicate auth listeners, each firing state updates on unmounted components.\n\n**`localStorage`-backed state (`getSavedState`/`saveState`) in `App.tsx`**\n\nNot a leak per se, but if there's a `useEffect` that calls `saveState` on every state change (common pattern for the ~10 state slices), each triggers a full `JSON.stringify` + `localStorage.setItem` synchronously on the main thread. At scale (large `units`/`expenses` arrays), this blocks rendering. Consider debouncing:\n\n```ts\nuseEffect(() => {\n  const id = setTimeout(() => saveState('hpm_issues', issues), 300);\n  return () => clearTimeout(id);\n}, [issues]);\n```\n\n",
+        "level": 2
+      },
+      {
+        "title": "5. Redundant Computations",
+        "content": "\n**`src/lib/propertyStatementAdapter.ts` — `calculateCategoryShare` and `calculateSimulationRows`**\n\nBoth call `toCalculationUnits(units)` and `toCalculationRules(rules).find(...)` independently even when invoked back-to-back for multiple categories (e.g., in a simulation UI iterating categories). Each call re-maps the entire `units`/`rules` arrays:\n\n```ts\n// If called once per category in a loop, this redoes toCalculationUnits(units) every time\nrules.forEach((rule) => calculateCategoryShare({ unit, category: rule.category, amount, units, rules }));\n```\n\nFix: extract shared setup once for a batch:\n```ts\nexport function calculateCategoryShares({ unit, categories, amounts, units, rules }: {...}) {\n  const calculationUnits = toCalculationUnits(units); // computed once\n  const calculationRules = toCalculationRules(rules); // computed once\n  return categories.map((category) => {\n    const rule = calculationRules.find((r) => r.categoryCode === category);\n    if (!rule) return 0;\n    const lines = calculateExpenseAllocation({ expense: { id: `preview-${category}`, categoryCode: category, amount: amounts[category] }, rule, units: calculationUnits });\n    return lines.find((line) => line.unitCode === unit.id)?.amount || 0;\n  });\n}\n```\n\n**`src/lib/propertyStatementAdapter.ts` — `toCalculationUnits`**\n\nRecomputes `getResidentsCount(unit)` (a hardcoded switch) on every call, but since it's a pure hardcoded lookup by `unit.id`, it's cheap — not a real bottleneck, but worth noting the hardcoded IDs (`'A1'`, `'A2'`, etc.) are a code smell more than a perf issue; this data should live on the `Unit` model itself (e.g., `residentsCount` field) rather than being recomputed via a switch every time statements are generated.\n\n**`src/lib/vat.ts` — `isValidGreekVat`**\n\nCalls `vatDigits(input)` which calls `normalizeVat(input)` — fine as-is (cheap), no action needed. Mentioned only to confirm it was checked; no redundant work found here.\n\n---\n\n",
+        "level": 2
+      },
+      {
+        "title": "Priority Summary",
+        "content": "| Issue | Impact | Effort |\n|---|---|---|\n| Sequential auth queries (`authRepository.ts`) | High (blocks every page load) | Low — `Promise.all` |\n| O(n·m) mapper filters (`dataRepository.ts`) | High as data grows | Low — pre-group with `Map` |\n| Unmemoized `getVisible*` calls in `App.tsx` render | Medium — cascading re-renders | Low — wrap in `useMemo` |\n| `buildStatements` recomputation per balance check | Medium | Medium — restructure batch calls |\n| Un-debounced `localStorage` writes | Medium at scale | Low — debounce |\n| `t` function identity in `useTranslation` | Low-medium | Low — `useCallback`/`useMemo` |\n\nSince `App.tsx`, `dataRepository.ts`, and the view components are truncated in what I can see, I'd recommend a follow-up pass reading those files in full (especially the `useEffect` blocks in `App.tsx` and the rest of `dataRepository.ts`'s snapshot-loading logic) to confirm whether the `getVisible*` calls are actually unmemoized in JSX and whether the Supabase snapshot loader does its property/unit/issue joins in one batch or N+1-style per-property queries.",
+        "level": 3
+      }
+    ],
+    "codeBlocks": [
+      {
+        "language": "ts",
+        "code": "// Current: 2 sequential round-trips per auth check\nconst { data: tenant } = await supabase.from('tenants').select('name').eq('id', tenantId).single();\n// ...then a second await for user_unit_access"
+      },
+      {
+        "language": "ts",
+        "code": "const [{ data: tenant }, { data: accessRows }] = await Promise.all([\n  supabase.from('tenants').select('name').eq('id', tenantId).single(),\n  (role === 'owner' || role === 'resident')\n    ? supabase.from('user_unit_access').select('units(code, properties(code))').eq('user_id', profile.id as string)\n    : Promise.resolve({ data: null })\n]);"
+      },
+      {
+        "language": "ts",
+        "code": "function mapProperty(row: any, unitsData: any[], issuesData: any[]): Property {\n  const unitsCount = unitsData.filter((u) => u.property_id === row.id).length; // O(n) per property\n  const issuesCount = issuesData.filter((i) => i.property_id === row.id && i.status !== 'Resolved').length;\n  ...\n}"
+      },
+      {
+        "language": "ts",
+        "code": "function groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {\n  const map = new Map<string, T[]>();\n  for (const row of rows) {\n    const k = key(row);\n    if (!map.has(k)) map.set(k, []);\n    map.get(k)!.push(row);\n  }\n  return map;\n}\n\n// build once before mapping all properties\nconst unitsByProperty = groupBy(unitsData, (u) => u.property_id);\nconst issuesByProperty = groupBy(issuesData, (i) => i.property_id);\n\nfunction mapProperty(row: any, unitsByProperty: Map<string, any[]>, issuesByProperty: Map<string, any[]>): Property {\n  const propUnits = unitsByProperty.get(row.id) ?? [];\n  const unitsCount = propUnits.length;\n  const issuesCount = (issuesByProperty.get(row.id) ?? []).filter((i) => i.status !== 'Resolved').length;\n  ...\n}"
+      },
+      {
+        "language": "ts",
+        "code": "return {\n  language,\n  setLanguage,\n  t: (key: TranslationKey) => translations[key][language] // new identity every render\n};"
+      },
+      {
+        "language": "ts",
+        "code": "const t = useCallback((key: TranslationKey) => translations[key][language], [language]);\nreturn useMemo(() => ({ language, setLanguage, t }), [language, t]);"
+      },
+      {
+        "language": "tsx",
+        "code": "const MemoIssuesView = React.memo(IssuesView);"
+      },
+      {
+        "language": "tsx",
+        "code": "// Likely current pattern (bad — new array reference every render, breaks memo children)\n<IssuesView issues={getVisibleIssues(currentUser, issues, selectedProperty, properties)} />\n\n// Fix\nconst visibleIssues = useMemo(\n  () => getVisibleIssues(currentUser, issues, selectedProperty, properties),\n  [currentUser, issues, selectedProperty, properties]\n);\n<IssuesView issues={visibleIssues} />"
+      },
+      {
+        "language": "tsx",
+        "code": "// In StatementsView or wherever buildStatements is called\nconst statements = useMemo(\n  () => buildStatements({ period, units, expenses, rules }),\n  [period, units, expenses, rules]\n);"
+      },
+      {
+        "language": "ts",
+        "code": "export function calculateBalanceAfterPayment({ unitId, paymentAmount, period, units, expenses, rules }) {\n  const statements = buildStatements({ period, units, expenses, rules }); // recomputes ALL units' statements\n  ...\n}"
+      },
+      {
+        "language": "ts",
+        "code": "const tenantNameCache = new Map<string, string>();\n\nasync function getTenantName(tenantId: string): Promise<string> {\n  if (tenantNameCache.has(tenantId)) return tenantNameCache.get(tenantId)!;\n  const { data } = await supabase.from('tenants').select('name').eq('id', tenantId).single();\n  const name = data?.name ?? '';\n  tenantNameCache.set(tenantId, name);\n  return name;\n}"
+      },
+      {
+        "language": "ts",
+        "code": "useEffect(() => {\n  if (supabaseInitialized.current) return;\n  supabaseInitialized.current = true;\n  const { data: sub } = supabase.auth.onAuthStateChange((event, session) => { ... });\n  return () => sub.subscription.unsubscribe(); // ensure this exists\n}, []);"
+      },
+      {
+        "language": "ts",
+        "code": "useEffect(() => {\n  const id = setTimeout(() => saveState('hpm_issues', issues), 300);\n  return () => clearTimeout(id);\n}, [issues]);"
+      },
+      {
+        "language": "ts",
+        "code": "// If called once per category in a loop, this redoes toCalculationUnits(units) every time\nrules.forEach((rule) => calculateCategoryShare({ unit, category: rule.category, amount, units, rules }));"
+      },
+      {
+        "language": "ts",
+        "code": "export function calculateCategoryShares({ unit, categories, amounts, units, rules }: {...}) {\n  const calculationUnits = toCalculationUnits(units); // computed once\n  const calculationRules = toCalculationRules(rules); // computed once\n  return categories.map((category) => {\n    const rule = calculationRules.find((r) => r.categoryCode === category);\n    if (!rule) return 0;\n    const lines = calculateExpenseAllocation({ expense: { id: `preview-${category}`, categoryCode: category, amount: amounts[category] }, rule, units: calculationUnits });\n    return lines.find((line) => line.unitCode === unit.id)?.amount || 0;\n  });\n}"
+      }
+    ]
+  },
+  "rawOutputPreview": "Here's a performance analysis of the codebase provided, organized by category.\n\n## 1. N+1 Query Patterns\n\n**`src/lib/supabase/authRepository.ts` — `buildAuthUser`**\n\nEvery login/session check does a tenant lookup, then (for owner/resident) a separate `user_unit_access` query. Called on every `getSession()` — i.e., every page load in Supabase mode.\n\n```ts\n// Current: 2 sequential round-trips per auth check\nconst { data: tenant } = await supabase.from('tenants').select('name').eq('id', tenantId).single();\n// ...then a second await for user_unit_access\n```\n\nFix: run independent queries concurrently, and consider a Postgres view/RPC that joins `user_profiles → tenants → user_unit_access → units → properties` in one call:\n\n```ts\nconst [{ data: tenant }, { data: accessRows }] = await Promise.all([\n  supabase.from('tenants').select('name').eq('id', tenantId).single(),\n  (role === 'owner' || role === 'resident')\n    ? supabase.from('user_unit_access').select('units(code, properties(code))').eq('user_id', profile.id as string)\n    : Promise.resolve({ data: null })\n]);\n```\n\n**`src/lib/supabase/dataRepository.ts` — mapper functions (`mapProperty`, `mapIssue`, etc.)**\n\nThese take `unitsData`/`issuesData` arrays and do `.filter()` inside a per-row mapper — that's O(n·m) when called in a `.map()` loop over properties, effectively an in-memory N+1:\n\n```ts\nfunction mapProperty(row: any, unitsData: any[], issuesData: any[]): Property {\n  const unitsCount = unitsData.filter((u) => u.property_id === row.id).length; // O(n) per property\n  const issuesCount = issuesData.filter((i) => i.property_id === row.id && i.status !== 'Resolved').length;\n  ...\n}\n```\n\nFix: pre-group once with `Map`, then O(1) lookups:\n\n```ts\nfunction groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {\n  const map = new Map<string, T[]>();\n  for (const row of rows) {\n    const k = key(row);\n    if (!map.has(k)) map.set(k, []);\n    map.get(k)!.push(row);\n  }\n  return map;\n}\n\n// build once before mapping ",
+  "rawOutputLength": 11572
+}

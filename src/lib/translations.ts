@@ -12,6 +12,7 @@ export const translations = {
   'nav.statements': { el: 'Κοινόχρηστα', en: 'Statements' },
   'nav.invoicing': { el: 'Παραστατικά AADE', en: 'AADE invoices' },
   'nav.assemblies': { el: 'Γενικές Συνελεύσεις', en: 'Assemblies' },
+  'nav.calendar': { el: 'Ημερολόγιο', en: 'Calendar' },
   'nav.issues': { el: 'Βλάβες & Συντήρηση', en: 'Issues & maintenance' },
   'nav.bank': { el: 'Τραπεζικό Καθολικό', en: 'Payment ledger' },
   'nav.docs': { el: 'Ψηφιακό Αρχείο', en: 'Documents' },
@@ -25,9 +26,7 @@ export const translations = {
   'header.profile': { el: 'Το Προφίλ μου', en: 'My profile' },
   'header.logout': { el: 'Αποσύνδεση', en: 'Log out' },
   'header.account': { el: 'Λογαριασμός', en: 'Account' },
-  'common.demo': { el: 'Λειτουργία επίδειξης', en: 'Demo mode' },
-  'nav.parliament': { el: 'Παρουσίαση στη Βουλή', en: 'Parliament Presentation' },
-  'login.parliament_badge': { el: 'Παρουσίαση στη Βουλή των Ελλήνων', en: 'Greek Parliament Presentation' }
+  'common.demo': { el: 'Λειτουργία επίδειξης', en: 'Demo mode' }
 } as const;
 
 export type TranslationKey = keyof typeof translations;

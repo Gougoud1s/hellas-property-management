@@ -1,4 +1,4 @@
-import { DistributionRule, Expense, Unit } from '../types';
+import { DistributionRule, Expense, StatementBatch, Unit } from '../types';
 import {
   CalculationExpense,
   CalculationRule,
@@ -9,6 +9,7 @@ import {
   roundMoney,
   sumMoney
 } from './calculationCore';
+import { participationFactor } from './unitParticipation';
 
 export interface CategoryTotal {
   category: string;
@@ -24,6 +25,11 @@ export interface ResponsibilityResolution {
   fallbackApplied: boolean;
 }
 
+export function getIssuedExpenses(expenses: Expense[], batches: StatementBatch[]): Expense[] {
+  const issuedIds = new Set(batches.flatMap((batch) => batch.expenseIds));
+  return expenses.filter((expense) => expense.status === 'Verified' && issuedIds.has(expense.id));
+}
+
 export function normalizeExpenseCategory(category: string): string {
   if (category.includes('Ασανσέρ') || category.includes('Lift') || category.includes('Ανελκυστήρ')) return 'Ασανσέρ';
   if (category.includes('Κήπ') || category.includes('Gard') || category.includes('Κηπουρ')) return 'Κήπος';
@@ -33,18 +39,18 @@ export function normalizeExpenseCategory(category: string): string {
   return 'Γενικά';
 }
 
-export function toCalculationUnits(units: Unit[]): (CalculationUnit & { responsiblePerson: string })[] {
+export function toCalculationUnits(units: Unit[], period?: string): (CalculationUnit & { responsiblePerson: string })[] {
   return units.map((unit) => ({
     code: unit.id,
     responsiblePerson: unit.residentName || unit.ownerName,
     weights: {
-      general: unit.share,
-      elevator: unit.floor === 'Ισόγειο' ? 0 : unit.share,
-      garden: unit.share,
-      heating: unit.size,
-      pool: unit.status === 'Ενεργό' ? 1 : 0,
-      people: getResidentsCount(unit),
-      equal: unit.status === 'Ενεργό' ? 1 : 0
+      general: unit.share * (period ? participationFactor(unit, period) : 1),
+      elevator: (unit.floor === 'Ισόγειο' ? 0 : unit.share) * (period ? participationFactor(unit, period) : 1),
+      garden: unit.share * (period ? participationFactor(unit, period) : 1),
+      heating: unit.size * (period ? participationFactor(unit, period) : 1),
+      pool: (unit.status === 'Ενεργό' ? 1 : 0) * (period ? participationFactor(unit, period) : 1),
+      people: getResidentsCount(unit) * (period ? participationFactor(unit, period) : 1),
+      equal: (unit.status === 'Ενεργό' ? 1 : 0) * (period ? participationFactor(unit, period) : 1)
     }
   }));
 }
@@ -78,7 +84,7 @@ export function toCalculationRules(rules: DistributionRule[]): CalculationRule[]
     const method = rule.method === 'Ισομερής Κατανομή' ? 'equal' : 'weights';
 
     return {
-      categoryCode: rule.category,
+      categoryCode: normalizeExpenseCategory(rule.category),
       method,
       weightKey: method === 'equal' ? 'equal' : weightKeyForMethod(rule),
       responsibleParty: getCategoryResponsibility(rule.category),
@@ -100,7 +106,7 @@ export function buildStatements({
 }): GeneratedStatement[] {
   return generateStatements({
     period,
-    units: toCalculationUnits(units),
+    units: toCalculationUnits(units, period),
     expenses: toCalculationExpenses(expenses),
     rules: toCalculationRules(rules),
     openingBalances: units
@@ -158,12 +164,7 @@ export function calculateSimulationRows({
 
 export function getResidentsCount(unit: Unit): number {
   if (unit.residentType === 'Κενό') return 0;
-  if (unit.id === 'A1') return 3;
-  if (unit.id === 'A2') return 2;
-  if (unit.id === 'B1') return 4;
-  if (unit.id === 'B2') return 1;
-  if (unit.id === 'C2') return 2;
-  return 1;
+  return Math.max(1, Math.floor(unit.occupants ?? 1));
 }
 
 export function statementCurrentCharges(statement: GeneratedStatement): number {

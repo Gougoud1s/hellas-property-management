@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Search, Plus, User, Wrench, Clock, AlertTriangle, ShieldCheck, ChevronRight, CheckCircle, Sliders } from 'lucide-react';
-import { Property, Issue } from '../types';
+import { Property, Issue, Expense } from '../types';
 
 interface IssuesViewProps {
   selectedProperty: Property | null;
   issues: Issue[];
+  expenses: Expense[];
   onAddIssue: (newIssue: Issue) => void;
   onUpdateIssueStatus: (id: string, newStatus: Issue['status']) => void;
   onAssignTechnician: (id: string, technician: string, estimate: number) => void;
@@ -15,6 +16,7 @@ interface IssuesViewProps {
 export default function IssuesView({
   selectedProperty,
   issues,
+  expenses,
   onAddIssue,
   onUpdateIssueStatus,
   onAssignTechnician,
@@ -162,7 +164,7 @@ export default function IssuesView({
           return (
             <div
               key={col.status}
-              className={`rounded-xl border border-outline-variant p-4 flex flex-col justify-start h-[640px] max-h-[640px] ${col.color}`}
+              className={`h-fit rounded-xl border border-outline-variant p-4 flex flex-col justify-start ${col.color}`}
             >
               <div className="flex items-center justify-between border-b border-outline-variant/50 pb-3 mb-3">
                 <div className="flex items-center gap-2">
@@ -174,8 +176,8 @@ export default function IssuesView({
                 </span>
               </div>
 
-              {/* Column Scroll container */}
-              <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+              {/* The column follows its content instead of forcing a tall nested scroller. */}
+              <div className="space-y-3">
                 {colIssues.length === 0 ? (
                   <p className="text-[11px] text-outline text-center py-10 font-medium">Κανένα δελτίο</p>
                 ) : (
@@ -254,6 +256,11 @@ export default function IssuesView({
                           </button>
                         )}
                       </div>
+                      {issue.status === 'Resolved' && expenses.some((expense) => expense.fileName === `issue:${issue.id}`) && (
+                        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] font-bold text-emerald-700">
+                          Δημιουργήθηκε πρόχειρη δαπάνη · αναμένει επαλήθευση
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

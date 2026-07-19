@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Lock, Save, SlidersHorizontal } from 'lucide-react';
+import { Check, ImagePlus, Lock, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { PmSettings } from '../types';
 
 interface PmSettingsViewProps {
@@ -36,6 +36,13 @@ export default function PmSettingsView({ settings, canManage, onSave }: PmSettin
   const inputClass = 'w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-60';
   const labelClass = 'mb-1.5 block text-xs font-bold text-outline';
   const num = (value: string) => Number(value.replace(/[^0-9.]/g, '')) || 0;
+  const handleLogo = (file?: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 512 * 1024) return;
+    const reader = new FileReader();
+    reader.onload = () => set('logoUrl', typeof reader.result === 'string' ? reader.result : undefined);
+    reader.readAsDataURL(file);
+  };
 
   return (
     <form id="pm-settings-view" onSubmit={handleSubmit} className="space-y-6">
@@ -79,6 +86,33 @@ export default function PmSettingsView({ settings, canManage, onSave }: PmSettin
         <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-black uppercase text-primary">Οργανισμός</h3>
           <div className="space-y-4">
+            <div className="flex items-center gap-4 rounded-lg border border-outline-variant bg-surface-container-low p-3">
+              <div className="flex h-16 w-16 flex-none items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-white p-2">
+                {draft.logoUrl ? (
+                  <img src={draft.logoUrl} alt="Προεπισκόπηση λογοτύπου" className="h-full w-full object-contain" />
+                ) : (
+                  <span className="text-xl font-black text-primary">{draft.organizationName.slice(0, 2).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-on-surface">Λογότυπο workspace</div>
+                <div className="mt-1 text-[11px] text-outline">PNG, JPG, WebP ή SVG έως 512 KB.</div>
+                {canManage && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <label className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-outline bg-white px-3 py-2 text-xs font-bold text-primary hover:bg-surface-container-low">
+                      <ImagePlus className="h-4 w-4" />
+                      Επιλογή logo
+                      <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="sr-only" onChange={(event) => handleLogo(event.target.files?.[0])} />
+                    </label>
+                    {draft.logoUrl && (
+                      <button type="button" onClick={() => set('logoUrl', undefined)} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-error hover:bg-red-50">
+                        <Trash2 className="h-4 w-4" /> Αφαίρεση
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             <div>
               <label className={labelClass}>ΕΠΩΝΥΜΙΑ ΟΡΓΑΝΙΣΜΟΥ</label>
               <input value={draft.organizationName} onChange={(e) => set('organizationName', e.target.value)} disabled={!canManage} className={inputClass} />

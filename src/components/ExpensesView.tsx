@@ -1,13 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { Search, Plus, Trash2, CheckCircle2, AlertCircle, FileText, UploadCloud, PieChart, Tag, DollarSign, Calendar, User, Sparkles, Loader2 } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, CheckCircle2, AlertCircle, FileText, UploadCloud, PieChart, Tag, DollarSign, Calendar, User, Sparkles, Loader2, X } from 'lucide-react';
 import { Property, Expense } from '../types';
 import { apiFetch } from '../lib/apiClient';
 
 interface ExpensesViewProps {
   selectedProperty: Property | null;
   expenses: Expense[];
-  onAddExpense: (newExpense: Expense) => void;
+  onAddExpense: (newExpense: Expense, file?: File) => void;
+  onUpdateExpense: (expense: Expense, file?: File) => void;
   onDeleteExpense: (id: string) => void;
+  onDownloadExpense: (expense: Expense) => void;
   onVerifyExpense: (id: string) => void;
   onSelectPropertyPrompt: () => void;
   canManageExpenses: boolean;
@@ -17,7 +19,9 @@ export default function ExpensesView({
   selectedProperty,
   expenses,
   onAddExpense,
+  onUpdateExpense,
   onDeleteExpense,
+  onDownloadExpense,
   onVerifyExpense,
   onSelectPropertyPrompt,
   canManageExpenses
@@ -25,6 +29,7 @@ export default function ExpensesView({
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // New Expense form states
   const [supplier, setSupplier] = useState('');
@@ -32,12 +37,57 @@ export default function ExpensesView({
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('2026-06-15');
   const [fileName, setFileName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | undefined>();
   const [isDragActive, setIsDragActive] = useState(false);
   const [aiMode, setAiMode] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [aiFilled, setAiFilled] = useState(false);
+  const [fileError, setFileError] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const toDateInputValue = (value: string) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const [day, month, year] = value.split('/');
+    return day && month && year ? `${year}-${month}-${day}` : value;
+  };
+
+  const resetForm = () => {
+    setSupplier('');
+    setCategory('Καθαριότητα');
+    setAmount('');
+    setDate('2026-06-15');
+    setFileName('');
+    setSelectedFile(undefined);
+    setFileError('');
+    setAiFilled(false);
+    setSelectedFile(undefined);
+    setEditingExpense(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const openNewExpense = () => {
+    resetForm();
+    setShowAddForm(true);
+  };
+
+  const openEditExpense = (expense: Expense) => {
+    if (expense.status !== 'Draft') return;
+    setEditingExpense(expense);
+    setSupplier(expense.supplier);
+    setCategory(expense.category);
+    setAmount(String(expense.amount));
+    setDate(toDateInputValue(expense.date));
+    setFileName(expense.fileName ?? '');
+    setFileError('');
+    setAiFilled(false);
+    setShowAddForm(true);
+  };
+
+  const closeForm = () => {
+    setShowAddForm(false);
+    resetForm();
+  };
 
   if (!selectedProperty) {
     return (
@@ -83,14 +133,28 @@ export default function ExpensesView({
     e.stopPropagation();
     setIsDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0]; setFileName(file.name); void scanReceipt(file);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) applyFile(e.dataTransfer.files[0]);
+  };
+
+  const applyFile = (file: File) => {
+    const allowedType = file.type === 'application/pdf' || file.type.startsWith('image/') || /\.(pdf|png|jpe?g)$/i.test(file.name);
+    if (!allowedType) {
+      setFileError('Επιλέξτε αρχείο PDF, PNG ή JPG.');
+      return;
     }
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError('Το αρχείο πρέπει να είναι έως 10 MB.');
+      return;
+    }
+    setFileError('');
+    setFileName(file.name);
+    setSelectedFile(file);
+    void scanReceipt(file);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]; setFileName(file.name); void scanReceipt(file);
+      applyFile(e.target.files[0]);
     }
   };
 
@@ -98,13 +162,10 @@ export default function ExpensesView({
     e.preventDefault();
     if (!supplier || !amount) return;
 
-    // Format date from YYYY-MM-DD to DD/MM/YYYY
-    const dateParts = date.split('-');
-    const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : date;
-
-    const newExp: Expense = {
-      id: `exp-${Date.now()}`,
-      date: formattedDate,
+    const expense: Expense = {
+      ...editingExpense,
+      id: editingExpense?.id ?? `exp-${Date.now()}`,
+      date,
       supplier,
       category,
       amount: Number(amount),
@@ -112,15 +173,9 @@ export default function ExpensesView({
       status: 'Draft'
     };
 
-    onAddExpense(newExp);
-
-    // Reset Form
-    setSupplier('');
-    setCategory('Καθαριότητα');
-    setAmount('');
-    setDate('2026-06-15');
-    setFileName('');
-    setShowAddForm(false);
+    if (editingExpense) onUpdateExpense(expense, selectedFile);
+    else onAddExpense(expense, selectedFile);
+    closeForm();
   };
 
   const filteredExpenses = expenses.filter((e) => {
@@ -204,7 +259,7 @@ export default function ExpensesView({
 
             {canManageExpenses && (
               <button
-                onClick={() => setShowAddForm(true)}
+                onClick={openNewExpense}
                 className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#0d5c63]"
               >
                 <Plus className="h-4 w-4" />
@@ -248,10 +303,10 @@ export default function ExpensesView({
                       </td>
                       <td className="px-6 py-4">
                         {exp.fileName ? (
-                          <div className="flex items-center gap-1.5 text-xs text-[#0d5c63] font-semibold hover:underline cursor-pointer">
+                          <button type="button" onClick={() => onDownloadExpense(exp)} className="flex items-center gap-1.5 text-xs text-[#0d5c63] font-semibold hover:underline">
                             <FileText className="h-3.5 w-3.5" />
                             {exp.fileName}
-                          </div>
+                          </button>
                         ) : (
                           <span className="text-xs text-outline italic">Χωρίς αρχείο</span>
                         )}
@@ -284,6 +339,15 @@ export default function ExpensesView({
                       </td>
                       {canManageExpenses && (
                         <td className="px-6 py-4 text-center">
+                          <button
+                            onClick={() => openEditExpense(exp)}
+                            disabled={exp.status !== 'Draft'}
+                            className="mr-1 rounded p-1 text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-30"
+                            title={exp.status === 'Draft' ? 'Επεξεργασία και προσθήκη παραστατικού' : 'Αλλάξτε πρώτα την κατάσταση σε Εκκρεμεί'}
+                            aria-label={`Επεξεργασία δαπάνης ${exp.supplier}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
                           <button
                             onClick={() => onDeleteExpense(exp.id)}
                             className="rounded p-1 text-red-600 hover:bg-red-50"
@@ -348,9 +412,12 @@ export default function ExpensesView({
           <div className="w-full max-w-md bg-surface-container-lowest p-6 shadow-2xl h-full flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between border-b border-outline-variant/50 pb-4">
-                <h2 className="text-lg font-bold text-primary">Καταχωρηση Νεου Εξοδου</h2>
+                <div>
+                  <h2 className="text-lg font-bold text-primary">{editingExpense ? 'Επεξεργασία Δαπάνης' : 'Καταχώρηση Νέου Εξόδου'}</h2>
+                  {editingExpense && <p className="mt-1 text-xs text-outline">Διορθώστε τα στοιχεία ή προσθέστε το παραστατικό που λείπει.</p>}
+                </div>
                 <button
-                  onClick={() => setShowAddForm(false)}
+                  onClick={closeForm}
                   className="rounded-full p-1 hover:bg-surface-container text-outline"
                 >
                   <span className="material-symbols-outlined">close</span>
@@ -458,6 +525,16 @@ export default function ExpensesView({
                       accept=".pdf,.png,.jpg,.jpeg"
                     />
                   </div>
+                  {fileName && (
+                    <button
+                      type="button"
+                      onClick={() => { setFileName(''); setFileError(''); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                      className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-red-700 hover:underline"
+                    >
+                      <X className="h-3.5 w-3.5" /> Αφαίρεση αρχείου
+                    </button>
+                  )}
+                  {fileError && <p className="mt-2 text-xs font-semibold text-red-700" role="alert">{fileError}</p>}
                   {aiFilled && <p className="ai-success"><Sparkles size={13}/> Τα πεδία συμπληρώθηκαν αυτόματα — ελέγξτε τα πριν την αποθήκευση.</p>}
                 </div>
               </form>
@@ -466,7 +543,7 @@ export default function ExpensesView({
             <div className="flex gap-3 border-t border-outline-variant/50 pt-4 mt-6">
               <button
                 type="button"
-                onClick={() => setShowAddForm(false)}
+                onClick={closeForm}
                 className="flex-1 rounded-lg border border-outline px-4 py-2.5 text-sm font-semibold hover:bg-surface-container"
               >
                 Ακύρωση
@@ -476,7 +553,7 @@ export default function ExpensesView({
                 onClick={handleFormSubmit}
                 className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0d5c63]"
               >
-                Αποθήκευση Draft
+                {editingExpense ? 'Αποθήκευση Αλλαγών' : 'Αποθήκευση Draft'}
               </button>
             </div>
           </div>

@@ -3,6 +3,8 @@
  * All Greek labels and hotlinked images from mockups are preserved exactly.
  */
 
+import anastassiadisSeed from './data/demo/anastassiadis.json';
+
 export interface Property {
   id: string;
   tenantId?: string;
@@ -15,6 +17,52 @@ export interface Property {
   issuesCount: number;
   imageUrl: string;
   occupancy: number; // percentage
+  /** Fixed building reserve target approved by the assembly. */
+  reserveFund?: number;
+  /** Currently available cash/bank balance for the building. */
+  cashAvailable?: number;
+}
+
+export interface AccountNotice {
+  id: string;
+  tenantId: string;
+  propertyId: string;
+  unitId: string;
+  period: string;
+  recipient: string;
+  amount: number;
+  channel: 'email' | 'sms' | 'print';
+  status: 'draft' | 'sent';
+  sentAt?: string;
+  dueDate: string;
+  statementBatchId?: string;
+}
+
+export interface StatementBatch {
+  id: string;
+  tenantId: string;
+  propertyId: string;
+  period: string;
+  sequence: number;
+  kind: 'initial' | 'correction';
+  reason?: string;
+  expenseIds: string[];
+  unitCharges: Record<string, number>;
+  idempotencyKey?: string;
+  unitSnapshot?: Unit[];
+  ruleSnapshot?: DistributionRule[];
+  expenseSnapshot?: Expense[];
+  createdAt: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  tenantId: string;
+  propertyId?: string;
+  title: string;
+  date: string;
+  type: 'payment' | 'maintenance' | 'assembly' | 'deadline' | 'other';
+  notes?: string;
 }
 
 export interface Unit {
@@ -31,6 +79,14 @@ export interface Unit {
   ownerEmail?: string;
   residentName: string;
   residentType: 'Ιδιοκατοίκηση' | 'Ενοικιαστής' | 'Κενό';
+  /** Number of occupants used by per-person allocation rules. */
+  occupants?: number;
+  /** First date on which the unit participates in common-charge allocation. */
+  participationStart?: string;
+  /** Optional final participation date, inclusive. */
+  participationEnd?: string;
+  /** Full-period charging or day-based proration for partial months. */
+  participationPolicy?: 'full' | 'prorated';
   status: 'Ενεργό' | 'Κενό';
   balance: number;
   prevBalance: number;
@@ -46,6 +102,7 @@ export interface Expense {
   category: string;
   amount: number;
   fileName?: string;
+  storagePath?: string;
   status: 'Verified' | 'Draft';
 }
 
@@ -92,12 +149,13 @@ export interface PaymentLedger {
   id: string;
   tenantId?: string;
   propertyId?: string;
+  period?: string;
   date: string;
   payer: string;
   unit: string;
   paymentCode: string;
   amount: number;
-  method: 'Τράπεζα' | 'Μετρητά';
+  method: 'Τράπεζα' | 'Μετρητά' | 'Κάρτα';
   matchType: 'ΑΥΤΟΜΑΤΗ' | 'ΧΕΙΡΟΚΙΝΗΤΗ' | 'ΕΚΚΡΕΜΕΙ';
   status: 'Ολοκληρώθηκε' | 'Υπό έγκριση' | 'Προτεινόμενο Match';
 }
@@ -112,6 +170,7 @@ export interface Document {
   property: string;
   visibility: 'Μόνο Εταιρεία' | 'Ιδιοκτήτες' | 'Όλοι';
   size: string;
+  storagePath?: string;
 }
 
 export interface TenantRegistrationRequest {
@@ -229,6 +288,8 @@ export interface TenantSubscription {
 /** Organisation-wide property-management settings. Table: **PMSettings**. */
 export interface PmSettings {
   organizationName: string;
+  /** Tenant workspace logo; URL or uploaded data URI in local-demo mode. */
+  logoUrl?: string;
   defaultCurrency: string;
   vatPercentage: number;
   lateFeePercentage: number;
@@ -242,6 +303,7 @@ export interface PmSettings {
 
 // Initial Mock Data matching the Greek mockup screens
 export const INITIAL_PROPERTIES: Property[] = [
+  ...(anastassiadisSeed.properties as Property[]),
   {
     id: 'ATH-0226',
     tenantId: 'tenant-hellas-pm',
@@ -310,6 +372,7 @@ export const INITIAL_PROPERTIES: Property[] = [
 ];
 
 export const INITIAL_UNITS: Unit[] = [
+  ...(anastassiadisSeed.units as Unit[]),
   {
     id: 'A1',
     tenantId: 'tenant-hellas-pm',
@@ -324,6 +387,7 @@ export const INITIAL_UNITS: Unit[] = [
     ownerEmail: 'i.papadopoulos@email.gr',
     residentName: 'Παπαδόπουλος Ι.',
     residentType: 'Ιδιοκατοίκηση',
+    occupants: 3,
     status: 'Ενεργό',
     balance: 124.50,
     prevBalance: 0.00,
@@ -343,6 +407,7 @@ export const INITIAL_UNITS: Unit[] = [
     ownerEmail: 'n.pappas@email.com',
     residentName: 'Παππάς Νικόλαος',
     residentType: 'Ιδιοκατοίκηση',
+    occupants: 2,
     status: 'Ενεργό',
     balance: 0.00,
     prevBalance: 0.00,
@@ -362,6 +427,7 @@ export const INITIAL_UNITS: Unit[] = [
     ownerEmail: 'e.kar@email.com',
     residentName: 'Νικολάου Ανδρέας',
     residentType: 'Ενοικιαστής',
+    occupants: 2,
     status: 'Ενεργό',
     balance: 270.40,
     prevBalance: 150.00,
@@ -379,6 +445,7 @@ export const INITIAL_UNITS: Unit[] = [
     ownerName: 'Βασιλείου Γεώργιος',
     residentName: 'Βασιλείου Γ.',
     residentType: 'Ιδιοκατοίκηση',
+    occupants: 1,
     status: 'Ενεργό',
     balance: 0.00,
     prevBalance: 0.00,
@@ -396,6 +463,7 @@ export const INITIAL_UNITS: Unit[] = [
     ownerName: 'Δημητρίου Φώτιος',
     residentName: '',
     residentType: 'Κενό',
+    occupants: 0,
     status: 'Κενό',
     balance: 42.50,
     prevBalance: 0.00,
@@ -413,6 +481,7 @@ export const INITIAL_UNITS: Unit[] = [
     ownerName: 'Κώστα Ελένη',
     residentName: 'Κώστα Ελένη',
     residentType: 'Ιδιοκατοίκηση',
+    occupants: 2,
     status: 'Ενεργό',
     balance: 44.80,
     prevBalance: 0.00,
@@ -430,6 +499,7 @@ export const INITIAL_UNITS: Unit[] = [
     ownerName: 'Παπαδόπουλος Ιωάννης',
     residentName: '',
     residentType: 'Κενό',
+    occupants: 0,
     status: 'Ενεργό',
     balance: 0.00,
     prevBalance: 0.00,
@@ -438,6 +508,7 @@ export const INITIAL_UNITS: Unit[] = [
 ];
 
 export const INITIAL_EXPENSES: Expense[] = [
+  ...(anastassiadisSeed.expenses as Expense[]),
   {
     id: 'exp-1',
     tenantId: 'tenant-hellas-pm',
@@ -473,6 +544,7 @@ export const INITIAL_EXPENSES: Expense[] = [
 ];
 
 export const INITIAL_RULES: DistributionRule[] = [
+  ...(anastassiadisSeed.rules as DistributionRule[]),
   {
     tenantId: 'tenant-hellas-pm',
     propertyId: 'ATH-0226',
@@ -524,6 +596,7 @@ export const INITIAL_RULES: DistributionRule[] = [
 ];
 
 export const INITIAL_ISSUES: Issue[] = [
+  ...(anastassiadisSeed.issues as Issue[]),
   {
     id: 'issue-1',
     tenantId: 'tenant-hellas-pm',
@@ -601,6 +674,7 @@ export const INITIAL_ISSUES: Issue[] = [
 ];
 
 export const INITIAL_BANK_TRANSACTIONS: BankTransaction[] = [
+  ...(anastassiadisSeed.bankTransactions as BankTransaction[]),
   {
     id: 'bank-1',
     tenantId: 'tenant-hellas-pm',
@@ -650,6 +724,7 @@ export const INITIAL_BANK_TRANSACTIONS: BankTransaction[] = [
 ];
 
 export const INITIAL_PAYMENT_LEDGER: PaymentLedger[] = [
+  ...(anastassiadisSeed.paymentLedger as PaymentLedger[]),
   {
     id: 'pay-1',
     tenantId: 'tenant-hellas-pm',
@@ -692,6 +767,7 @@ export const INITIAL_PAYMENT_LEDGER: PaymentLedger[] = [
 ];
 
 export const INITIAL_DOCUMENTS: Document[] = [
+  ...(anastassiadisSeed.documents as Document[]),
   {
     id: 'doc-1',
     tenantId: 'tenant-hellas-pm',
@@ -739,6 +815,7 @@ export const INITIAL_DOCUMENTS: Document[] = [
 ];
 
 export const INITIAL_TENANTS: Tenant[] = [
+  anastassiadisSeed.tenant as Tenant,
   {
     id: 'ten-1',
     companyName: 'Athens Blocks ΙΚΕ',
@@ -982,6 +1059,7 @@ export const INITIAL_TENANTS: Tenant[] = [
 ];
 
 export const INITIAL_SUBSCRIPTIONS: TenantSubscription[] = [
+  anastassiadisSeed.subscription as TenantSubscription,
   { id: 'sub-1', tenantId: 'ten-1', tenantName: 'Athens Blocks ΙΚΕ', plan: 'professional', status: 'active', seats: 8, renewalDate: '15/09/2026' },
   { id: 'sub-2', tenantId: 'ten-2', tenantName: 'Βασίλης Ντάλας', plan: 'starter', status: 'trial', seats: 1, renewalDate: '02/08/2026' },
   { id: 'sub-3', tenantId: 'ten-3', tenantName: 'Marina Estate Management AE', plan: 'professional', status: 'past_due', seats: 6, renewalDate: '28/06/2026' },
@@ -1016,6 +1094,19 @@ export function getSavedState<T>(key: string, defaultValue: T): T {
   } catch (e) {
     return defaultValue;
   }
+}
+
+/**
+ * Loads editable demo records while merging in newly shipped seed rows. This
+ * keeps user changes in localStorage and makes versioned demo fixtures appear
+ * without requiring users to clear their browser data.
+ */
+export function getSavedSeededArray<T>(key: string, seed: T[], identity: (item: T) => string): T[] {
+  const saved = getSavedState<T[]>(key, []);
+  const savedById = new Map(saved.map((item) => [identity(item), item]));
+  const seedIds = new Set(seed.map(identity));
+  const hydratedSeed = seed.map((item) => ({ ...item, ...(savedById.get(identity(item)) ?? {}) }));
+  return [...hydratedSeed, ...saved.filter((item) => !seedIds.has(identity(item)))];
 }
 
 /**

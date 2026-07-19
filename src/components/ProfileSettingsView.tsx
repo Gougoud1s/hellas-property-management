@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Camera, Lock, Save, ShieldCheck, UserCircle } from 'lucide-react';
 import { AuthUser, getRoleLabel } from '../lib/auth';
 import { getPlatformPermissions, getPlatformRoleLabel } from '../lib/rbac';
+import { getConfiguredDataMode } from '../lib/backendContracts';
+import { supabase } from '../lib/supabase/client';
 
 interface ProfileSettingsViewProps {
   currentUser: AuthUser;
@@ -22,6 +24,30 @@ export default function ProfileSettingsView({ currentUser, onUpdateProfile }: Pr
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl);
   const [notificationEmail, setNotificationEmail] = useState(currentUser.notificationEmail ?? true);
   const [notificationSms, setNotificationSms] = useState(currentUser.notificationSms ?? false);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaEnrollment, setMfaEnrollment] = useState<{ id: string; qrCode: string; secret: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaMessage, setMfaMessage] = useState('');
+  const cloud = getConfiguredDataMode() === 'supabase';
+
+  useEffect(() => {
+    if (!cloud) return;
+    void supabase.auth.mfa.listFactors().then(({ data }) => setMfaEnabled(data?.totp.some((factor) => factor.status === 'verified') ?? false));
+  }, [cloud]);
+
+  const beginMfaEnrollment = async () => {
+    setMfaMessage('');
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Atlas PM' });
+    if (error) { setMfaMessage(error.message); return; }
+    setMfaEnrollment({ id: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
+  };
+
+  const verifyMfaEnrollment = async () => {
+    if (!mfaEnrollment || !/^\d{6}$/.test(mfaCode)) return;
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: mfaEnrollment.id, code: mfaCode });
+    if (error) { setMfaMessage(error.message); return; }
+    setMfaEnabled(true); setMfaEnrollment(null); setMfaCode(''); setMfaMessage('Το MFA ενεργοποιήθηκε επιτυχώς.');
+  };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -152,6 +178,20 @@ export default function ProfileSettingsView({ currentUser, onUpdateProfile }: Pr
               </label>
             </div>
           </div>
+
+          {cloud && <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+            <h3 className="flex items-center gap-2 text-sm font-black uppercase text-primary"><ShieldCheck className="h-4 w-4" />Έλεγχος δύο παραγόντων (MFA)</h3>
+            <p className="mt-2 text-xs leading-relaxed text-outline">Οι διαχειριστές εταιρείας πρέπει να χρησιμοποιούν εφαρμογή authenticator πριν αποκτήσουν πρόσβαση σε οικονομικές λειτουργίες.</p>
+            {mfaEnabled ? <div className="mt-4 rounded-lg bg-teal-50 p-3 text-sm font-bold text-teal-700">MFA ενεργό</div> : !mfaEnrollment ?
+              <button type="button" onClick={beginMfaEnrollment} className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white">Ενεργοποίηση MFA</button> :
+              <div className="mt-4 space-y-3">
+                <img src={mfaEnrollment.qrCode} alt="QR code για εφαρμογή authenticator" className="h-44 w-44 rounded-lg border bg-white p-2" />
+                <div className="text-xs text-outline">Εναλλακτικό κλειδί: <code className="break-all font-mono">{mfaEnrollment.secret}</code></div>
+                <div className="flex gap-2"><input value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="000000" className="w-36 rounded-lg border border-outline px-3 py-2 font-mono" />
+                  <button type="button" onClick={verifyMfaEnrollment} disabled={mfaCode.length !== 6} className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Επιβεβαίωση</button></div>
+              </div>}
+            {mfaMessage && <p role="status" className="mt-3 text-xs font-semibold text-outline">{mfaMessage}</p>}
+          </div>}
 
           <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
             <h3 className="flex items-center gap-2 text-sm font-black uppercase text-primary">

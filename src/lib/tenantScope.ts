@@ -35,7 +35,8 @@ function resolvePropertyId(entity: ScopedEntity, propertyName?: string, properti
 }
 
 function userPropertyIds(user: AuthUser): string[] | null {
-  if (user.role === 'company_admin' || user.role === 'company_staff') return null;
+  if (user.role === 'company_admin') return null;
+  if (user.role === 'company_staff') return user.propertyIds?.length ? user.propertyIds : null;
   return user.propertyIds && user.propertyIds.length > 0 ? user.propertyIds : [DEFAULT_PROPERTY_ID];
 }
 

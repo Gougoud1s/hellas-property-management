@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-07-16T18:55:30.390Z",
+  "mode": "headless",
+  "workerType": "audit",
+  "model": "haiku",
+  "durationMs": 42362,
+  "executionId": "audit_1784228088028_c60rby",
+  "success": true,
+  "findings": {
+    "vulnerabilities": [
+      {
+        "severity": "high",
+        "file": "src/lib/auth.ts",
+        "line": 85,
+        "description": "Hardcoded demo password 'platform123' in DEMO_USERS array - credentials visible in source code and git history"
+      },
+      {
+        "severity": "high",
+        "file": "src/lib/auth.ts",
+        "line": 100,
+        "description": "Hardcoded demo password 'admin123' in DEMO_USERS array - credentials visible in source code and git history"
+      },
+      {
+        "severity": "high",
+        "file": "src/lib/auth.ts",
+        "line": 116,
+        "description": "Hardcoded demo password 'staff123' in DEMO_USERS array - credentials visible in source code and git history"
+      },
+      {
+        "severity": "high",
+        "file": "src/lib/auth.ts",
+        "line": 128,
+        "description": "Hardcoded demo password 'owner123' in DEMO_USERS array - credentials visible in source code and git history"
+      },
+      {
+        "severity": "high",
+        "file": "src/lib/auth.ts",
+        "line": 140,
+        "description": "Hardcoded demo password 'resident123' in DEMO_USERS array - credentials visible in source code and git history"
+      },
+      {
+        "severity": "high",
+        "file": "src/components/LoginView.tsx",
+        "line": 50,
+        "description": "Hardcoded default password 'admin123' in login form state - exposed in browser code and source control"
+      },
+      {
+        "severity": "high",
+        "file": "server/auth.ts",
+        "line": 20,
+        "description": "Authentication completely bypassed in demo mode - when Supabase is not configured, all requests pass through with synthetic principal despite warning log"
+      },
+      {
+        "severity": "high",
+        "file": "src/lib/auth.ts",
+        "line": 99,
+        "description": "Real email addresses and phone numbers in DEMO_USERS - leaked PII (admin@hellaspm.gr, staff@hellaspm.gr, 210-9993311, 210-9993312)"
+      },
+      {
+        "severity": "medium",
+        "file": "server/ocr.ts",
+        "line": 13,
+        "description": "API key passed in fetch headers without additional validation - ANTHROPIC_API_KEY could be exposed in error logs, network monitoring, or monitoring tools if request fails"
+      },
+      {
+        "severity": "medium",
+        "file": "server/ocr.ts",
+        "line": 18,
+        "description": "Error messages may expose sensitive API request details - could leak base64 image data or API errors in logs"
+      },
+      {
+        "severity": "medium",
+        "file": "server/payments.ts",
+        "line": 35,
+        "description": "Webhook endpoint at /api/webhooks/vivawallet is mounted BEFORE requireAuth middleware, allowing unauthenticated access - while it claims server-to-server verification, the webhook handling code is truncated and cannot be fully verified"
+      },
+      {
+        "severity": "medium",
+        "file": "server/index.ts",
+        "line": 10,
+        "description": "CORS origin configured from environment variable (VITE_APP_URL) without validation - if not set, defaults to localhost which is permissive"
+      },
+      {
+        "severity": "low",
+        "file": "src/lib/auth.ts",
+        "line": 75,
+        "description": "Auth data stored in localStorage with predictable key ('hpm_auth_user') - vulnerable to XSS, but user data format appears reasonable"
+      },
+      {
+        "severity": "low",
+        "file": "src/lib/safeUrl.ts",
+        "line": 18,
+        "description": "URL sanitization function is well-implemented with protocol whitelist (http/https only) - no vulnerability, but verify it's used on all user-supplied URLs"
+      }
+    ],
+    "riskScore": 82,
+    "recommendations": [
+      "CRITICAL: Remove all hardcoded passwords from DEMO_USERS array in src/lib/auth.ts immediately. Generate temporary credentials via environment variables or remove demo account credentials entirely from production builds",
+      "CRITICAL: Remove default password 'admin123' from LoginView.tsx state initialization - use empty string instead",
+      "CRITICAL: Force authentication requirement - replace demo mode bypass with early startup error if Supabase is not configured. Demo mode should never silently allow unauthenticated requests in a production-like environment",
+      "CRITICAL: Replace real email addresses and phone numbers in DEMO_USERS with generic placeholders (demo@example.com, 555-0000-0000)",
+      "HIGH: Add validation and logging for ANTHROPIC_API_KEY usage - never expose the actual key in error messages or logs. Sanitize error responses before sending to client",
+      "HIGH: Verify webhook signature validation in payments.ts webhook handler. Implement HMAC-SHA256 or similar verification using Viva's webhook secret",
+      "HIGH: Add rate limiting on OCR endpoint (/api/expenses/scan) to prevent abuse and cost overruns from malicious requests",
+      "MEDIUM: Validate VITE_APP_URL environment variable is a valid origin before using in CORS headers - reject if empty or invalid",
+      "MEDIUM: Implement request signing/verification for Anthropic API calls - use request/response validation beyond basic status checks",
+      "MEDIUM: Add comprehensive input validation on all API endpoints - validate request body structure, data types, and ranges",
+      "MEDIUM: Implement Content Security Policy (CSP) headers to mitigate XSS risks, especially given user-supplied URL handling",
+      "LOW: Add secret rotation policy for API keys - ensure .env files are never committed and .gitignore includes all credential files",
+      "LOW: Consider removing localStorage usage for sensitive auth data - use httpOnly cookies instead (if possible with current architecture)",
+      "LOW: Add security headers (X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security) to all responses"
+    ]
+  },
+  "rawOutputPreview": "Based on my analysis of the codebase, here's the comprehensive security vulnerability report:\n\n```json\n{\n  \"vulnerabilities\": [\n    {\n      \"severity\": \"high\",\n      \"file\": \"src/lib/auth.ts\",\n      \"line\": 85,\n      \"description\": \"Hardcoded demo password 'platform123' in DEMO_USERS array - credentials visible in source code and git history\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"src/lib/auth.ts\",\n      \"line\": 100,\n      \"description\": \"Hardcoded demo password 'admin123' in DEMO_USERS array - credentials visible in source code and git history\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"src/lib/auth.ts\",\n      \"line\": 116,\n      \"description\": \"Hardcoded demo password 'staff123' in DEMO_USERS array - credentials visible in source code and git history\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"src/lib/auth.ts\",\n      \"line\": 128,\n      \"description\": \"Hardcoded demo password 'owner123' in DEMO_USERS array - credentials visible in source code and git history\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"src/lib/auth.ts\",\n      \"line\": 140,\n      \"description\": \"Hardcoded demo password 'resident123' in DEMO_USERS array - credentials visible in source code and git history\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"src/components/LoginView.tsx\",\n      \"line\": 50,\n      \"description\": \"Hardcoded default password 'admin123' in login form state - exposed in browser code and source control\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"server/auth.ts\",\n      \"line\": 20,\n      \"description\": \"Authentication completely bypassed in demo mode - when Supabase is not configured, all requests pass through with synthetic principal despite warning log\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"src/lib/auth.ts\",\n      \"line\": 99,\n      \"description\": \"Real email addresses and phone numbers in DEMO_USERS - leaked PII (admin@hellaspm.gr, staff@hellaspm.gr, 210-9993311, 210-9993312)\"\n    },\n    {\n      \"sever",
+  "rawOutputLength": 6798
+}

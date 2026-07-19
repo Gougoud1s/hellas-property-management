@@ -1,0 +1,15 @@
+{
+  "id": "session-1784206677623",
+  "startedAt": "2026-07-16T12:57:57.623Z",
+  "cwd": "/Users/iraklisgougoudis/Desktop/_Organized/Projects/hellas-property-management",
+  "context": {},
+  "metrics": {
+    "edits": 0,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "restoredAt": "2026-07-16T12:57:57.635Z",
+  "endedAt": "2026-07-16T12:59:14.490Z",
+  "duration": 76868
+}

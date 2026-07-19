@@ -27,6 +27,8 @@ export default function PropertiesView({
   const [newUnitsCount, setNewUnitsCount] = useState(12);
   const [newPeriod, setNewPeriod] = useState('Ιούνιος 2026');
   const [newOccupancy, setNewOccupancy] = useState(100);
+  const [newReserveFund, setNewReserveFund] = useState(0);
+  const [newCashAvailable, setNewCashAvailable] = useState(0);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,13 +39,17 @@ export default function PropertiesView({
       unitsCount: Number(newUnitsCount),
       period: newPeriod,
       imageUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
-      occupancy: Number(newOccupancy)
+      occupancy: Number(newOccupancy),
+      reserveFund: Number(newReserveFund),
+      cashAvailable: Number(newCashAvailable)
     });
     // Reset fields
     setNewName('');
     setNewAddress('');
     setNewUnitsCount(12);
     setNewOccupancy(100);
+    setNewReserveFund(0);
+    setNewCashAvailable(0);
     setShowAddForm(false);
   };
 
@@ -63,7 +69,7 @@ export default function PropertiesView({
   return (
     <div id="properties-view-container" className="space-y-6">
       {/* Overview stats header */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-outline">ΣΥΝΟΛΟ ΜΟΝΑΔΩΝ</span>
@@ -71,6 +77,17 @@ export default function PropertiesView({
           </div>
           <div className="mt-2 text-3xl font-bold text-primary font-sans">{totalUnits}</div>
           <div className="mt-1 text-xs text-outline font-medium">Σε {properties.length} Πολυκατοικίες</div>
+        </div>
+
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-outline">ΔΙΑΘΕΣΙΜΟ ΤΑΜΕΙΟ</span>
+            <span className="material-symbols-outlined text-teal-700 text-2xl">account_balance</span>
+          </div>
+          <div className="mt-2 text-3xl font-bold text-teal-700 font-mono">
+            {properties.reduce((sum, property) => sum + (property.cashAvailable ?? 0), 0).toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}
+          </div>
+          <div className="mt-1 text-xs text-outline font-medium">Σύνολο διαθέσιμων ανά πολυκατοικία</div>
         </div>
 
         <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
@@ -209,6 +226,17 @@ export default function PropertiesView({
                   </div>
                 </div>
 
+                <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-outline-variant/40 bg-surface-container-low/50 p-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-outline">ΣΤΑΘΕΡΟ ΑΠΟΘΕΜΑΤΙΚΟ</span>
+                    <div className="mt-1 font-mono text-sm font-bold text-primary">{(p.reserveFund ?? 0).toLocaleString('el-GR')} €</div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-outline">ΔΙΑΘΕΣΙΜΟ ΤΑΜΕΙΟ</span>
+                    <div className={`mt-1 font-mono text-sm font-bold ${(p.cashAvailable ?? 0) >= 0 ? 'text-teal-700' : 'text-error'}`}>{(p.cashAvailable ?? 0).toLocaleString('el-GR')} €</div>
+                  </div>
+                </div>
+
                 {/* Occupancy Indicator */}
                 <div className="mt-2 mb-4">
                   <div className="flex items-center justify-between text-[10px] text-outline font-bold uppercase">
@@ -323,6 +351,16 @@ export default function PropertiesView({
                     onChange={(e) => setNewPeriod(e.target.value)}
                     className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:border-primary"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-outline mb-1.5">ΣΤΑΘΕΡΟ ΑΠΟΘΕΜΑΤΙΚΟ</label>
+                    <input type="number" min={0} step="0.01" value={newReserveFund} onChange={(e) => setNewReserveFund(Number(e.target.value))} className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm font-mono outline-none focus:border-primary" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-outline mb-1.5">ΔΙΑΘΕΣΙΜΟ ΤΑΜΕΙΟ</label>
+                    <input type="number" step="0.01" value={newCashAvailable} onChange={(e) => setNewCashAvailable(Number(e.target.value))} className="w-full rounded-lg border border-outline bg-surface-container-lowest px-3 py-2 text-sm font-mono outline-none focus:border-primary" />
+                  </div>
                 </div>
               </form>
             </div>
